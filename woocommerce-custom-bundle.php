@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name:		WooC Bundle gIA70 (Hybrid Solution)
+ * Plugin Name:		WooC Bundle gIA70
  * Description:       	Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           	0.8.3 (Robust Cart Display)
- * Author:            	Gianfranco Greco con Codice Sorgente
+ * Version:           	0.8.3
+ * Author:            	Gianfranco Greco
  * License:           	GPL-2.0+
  * Text Domain:       	wcb-framework
  * GitHub Plugin URI:	Gianfry70IT/WooC-Bundle-gIA70
