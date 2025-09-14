@@ -1,10 +1,6 @@
-// Plugin Name:       WooC Bundle gIA70
-// Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
-// Version:           0.8.2
-// Author:            Gianfranco Greco con Codice Sorgente
+// admin.js
 // Copyright (c) 2025 Gianfranco Greco
 // Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
-// Text Domain:       wcb-framework
 
 jQuery(document).ready(function($) {
     const $groupsContainer = $('#bundle_groups_container');
@@ -149,7 +145,6 @@ jQuery(document).ready(function($) {
     $groupsContainer.on('change', 'select.wc-product-search', function() { updateProductExclusions(); });
     $groupsContainer.on('change input', 'input[name$="[min_qty]"], input[name$="[max_qty]"]', function() { validateMinMax($(this).closest('.bundle-group')); });
     
-    // --- Inizio Blocco Firma ---
     function gestisciVisibilitaFirma() {
         const productType = $('#product-type').val();
         const $signature = $('.wcb-signature');
@@ -161,13 +156,10 @@ jQuery(document).ready(function($) {
         }
     }
 
-    // Esegui al caricamento della pagina
     gestisciVisibilitaFirma();
 
-    // Esegui quando il tipo di prodotto cambia
     $('#product-type').on('change', function() {
         gestisciVisibilitaFirma();
     });
-    // --- Fine Blocco Firma ---
-    
+
 });

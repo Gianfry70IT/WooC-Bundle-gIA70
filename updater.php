@@ -2,7 +2,10 @@
 /**
  * WCB GitHub Updater (Versione Finale Definitiva)
  * @version 1.7.0
- */
+ * Author: gIA70 - Gianfranco Greco
+ * Copyright (c) 2025 Gianfranco Greco
+ * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
+*/
 
 if ( ! class_exists( 'WCB_GitHub_Updater' ) ) {
     class WCB_GitHub_Updater {
@@ -56,11 +59,9 @@ if ( ! class_exists( 'WCB_GitHub_Updater' ) ) {
 
             if ( version_compare( $github_version, $installed_version, '>' ) ) {
                 
-                // --- LOGICA MODIFICATA E PIÙ ROBUSTA ---
                 $package_url = '';
                 if ( ! empty( $this->github_response->assets ) ) {
                     foreach ( $this->github_response->assets as $asset ) {
-                        // Cerca un file allegato che finisce con ".zip"
                         if ( '.zip' === substr( $asset->name, -4 ) ) {
                             $package_url = $asset->browser_download_url;
                             break;

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WooC Bundle gIA70
  * Description: Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version: 0.9.2
+ * Version: 0.9.3
  * Author: gIA70 - Gianfranco Greco
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -12,10 +12,9 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit; // Accesso negato
+    exit; 
 }
 
-// Includi e inizializza l'updater
 require_once plugin_dir_path( __FILE__ ) . 'updater.php';
 new WCB_GitHub_Updater( __FILE__ );
 
@@ -40,7 +39,6 @@ final class WC_Custom_Bundle_Framework {
 
         require_once plugin_dir_path( __FILE__ ) . 'includes/class-wc-product-custom-bundle.php';
 
-        // ADMIN
         add_filter( 'product_type_selector', [ $this, 'add_bundle_product_type' ] );
         add_filter( 'woocommerce_product_class', [ $this, 'load_bundle_product_class' ], 10, 2 );
         add_filter( 'woocommerce_product_data_tabs', [ $this, 'add_bundle_options_tab' ] );
@@ -51,15 +49,12 @@ final class WC_Custom_Bundle_Framework {
         add_action( 'woocommerce_process_product_meta_custom_bundle', [ $this, 'save_bundle_pricing_fields' ] );
         add_action( 'wp_ajax_wcb_custom_product_search', [ $this, 'handle_custom_product_search' ] );
         
-        // FRONTEND
         add_action( 'woocommerce_single_product_summary', [ $this, 'display_bundle_options_start' ], 30 );
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_scripts' ] );
 
-        // GESTORE AJAX PER AGGIUNTA AL CARRELLO
         add_action( 'wp_ajax_wcb_add_bundle_to_cart', [ $this, 'wcb_add_bundle_to_cart_handler' ] );
         add_action( 'wp_ajax_nopriv_wcb_add_bundle_to_cart', [ $this, 'wcb_add_bundle_to_cart_handler' ] );
 
-        // Ganci per carrello e ordini
         add_filter( 'woocommerce_get_item_data', [ $this, 'display_bundle_selections_in_cart' ], 10, 2 );
         add_action( 'woocommerce_checkout_create_order_line_item', [ $this, 'add_selections_to_order_items' ], 10, 4 );
         add_action( 'woocommerce_before_calculate_totals', [ $this, 'calculate_bundle_price_in_cart' ], 99 );
@@ -378,7 +373,6 @@ final class WC_Custom_Bundle_Framework {
 
     public function display_bundle_selections_in_cart($item_data, $cart_item) {
         if (!empty($cart_item['wcb_bundle_selections'])) {
-            // Rimuoviamo eventuali metadati duplicati prima di aggiungerne di nuovi
             $item_data = array_filter($item_data, function($data) {
                 return !isset($data['display_class']) || $data['display_class'] !== 'wcb-bundle-item-meta';
             });
@@ -412,14 +406,14 @@ final class WC_Custom_Bundle_Framework {
                  }
                  
                  $item_data[] = [
-                    'key' => '', // Chiave vuota per non avere un titolo in grassetto
+                    'key' => '', 
                     'display' => $product_line,
                     'display_class' => 'wcb-bundle-item-meta'
                  ];
 
                  if (!empty($item['personalization'])) {
                      $item_data[] = [
-                        'key' => '', // Chiave vuota anche qui
+                        'key' => '', 
                         'display' => '<small style="padding-left: 15px;">' . esc_html($item['personalization_label']) . ': ' . esc_html($item['personalization']) . '</small>',
                         'display_class' => 'wcb-bundle-item-meta'
                     ];
@@ -431,13 +425,10 @@ final class WC_Custom_Bundle_Framework {
 
     public function add_selections_to_order_items($item, $cart_item_key, $values, $order) {
         if (!empty($values['wcb_bundle_selections'])) {
-            // Salvataggio dei dati grezzi per la gestione interna (es. magazzino)
             $item->add_meta_data('_wcb_bundle_selections_hidden', $values['wcb_bundle_selections'], true);
             
-            // Titolo visibile
             $item->add_meta_data(__('Contenuto del Bundle', 'wcb-framework'), '', true);
     
-            // Aggreghiamo i prodotti per raggruppare le quantità
             $display_items = [];
             foreach ($values['wcb_bundle_selections'] as $group_selections) {
                 foreach ($group_selections as $selection) {
@@ -458,24 +449,17 @@ final class WC_Custom_Bundle_Framework {
                 }
             }
             
-            // NUOVA LOGICA: Costruiamo una singola stringa per ogni item e la salviamo.
             foreach ($display_items as $display_item) {
-                // Partiamo dal nome del prodotto
                 $display_line = $display_item['product_name'];
     
-                // Aggiungiamo la quantità se maggiore di 1
                 if ($display_item['quantity'] > 1) {
                     $display_line .= ' &times; ' . $display_item['quantity'];
                 }
                 
-                // Aggiungiamo la personalizzazione, se presente
                 if (!empty($display_item['personalization'])) {
-                    // Usiamo un separatore per mantenere la leggibilità
                     $display_line .= ' | ' . esc_html($display_item['personalization_label']) . ': ' . esc_html($display_item['personalization']);
                 }
                 
-                // Salviamo la riga completa. Usiamo un trattino come chiave per tutti, 
-                // così WooCommerce mostrerà solo il valore, che è la nostra riga completa.
                 $item->add_meta_data(':>', $display_line, false);
             }
         }

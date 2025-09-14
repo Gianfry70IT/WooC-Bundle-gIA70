@@ -1,13 +1,8 @@
-/* Stili Base del Bundle 
-
- * Plugin Name:       WooC Bundle gIA70
- * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           0.8.2
- * Author:            Gianfranco Greco con Codice Sorgente
+/*
+ * Stili Base del Bundle 
+ * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:       wcb-framework
- 
 */
 .wcb-bundle-container { border: 1px solid #e0e0e0; padding: 20px; margin-top: 20px; border-radius: 5px; background: #f9f9f9; }
 .wcb-bundle-instructions { padding: 15px; margin-bottom: 20px; background: #f1f1f1; border-left: 4px solid #0073aa; }
@@ -22,7 +17,6 @@
 .wcb-product-price { margin-left: 15px; font-weight: bold; color: #0073aa; }
 .wcb-quantity-input { margin-left: 15px; width: 70px; text-align: center; }
 
-/* Stili per le varianti e la personalizzazione */
 .wcb-variation-container,
 .wcb-variation-sets-container,
 .wcb-personalization-field-container { 
@@ -64,12 +58,10 @@
     color: #555; 
 }
 
-/* Stili per la validazione */
 .wcb-group-incomplete { border-left-color: #c9356e !important; }
 .wcb-group-complete { border-left-color: #46b450 !important; }
 select option:disabled { color: #aaaaaa; background-color: #f5f5f5; }
 
-/* Stile per pulsante, messaggi e campi input moderni */
 .woocommerce-variation-add-to-cart { margin-top: 20px; }
 .single_add_to_cart_button.button.alt {
     background-color: #0073aa;
@@ -93,7 +85,6 @@ select option:disabled { color: #aaaaaa; background-color: #f5f5f5; }
     padding: 1em 2em 1em 3.5em !important;
 }
 
-/* Stile unificato e moderno per tutti i campi input del bundle */
 .wcb-bundle-container input[type="text"],
 .wcb-bundle-container input[type="number"],
 .wcb-bundle-container select {
@@ -114,13 +105,11 @@ select option:disabled { color: #aaaaaa; background-color: #f5f5f5; }
     box-shadow: 0 0 0 1px #0073aa;
 }
 
-/* Stile per l'errore di validazione sul campo di testo */
 .wcb-personalization-input.wcb-input-error {
     border-color: #c9356e !important;
     box-shadow: 0 0 0 1px #c9356e !important;
 }
 
-/* Stile per l'asterisco dei campi obbligatori */
 .wcb-personalization-field-container .required,
 .wcb-personalization-field .required {
     color: #c9356e;
