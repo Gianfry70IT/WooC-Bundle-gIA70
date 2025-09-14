@@ -1,0 +1,129 @@
+/* Stili Base del Bundle 
+
+ * Plugin Name:       WooC Bundle gIA70
+ * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
+ * Version:           0.8.2
+ * Author:            Gianfranco Greco con Codice Sorgente
+ * Copyright (c) 2025 Gianfranco Greco
+ * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:       wcb-framework
+ 
+*/
+.wcb-bundle-container { border: 1px solid #e0e0e0; padding: 20px; margin-top: 20px; border-radius: 5px; background: #f9f9f9; }
+.wcb-bundle-instructions { padding: 15px; margin-bottom: 20px; background: #f1f1f1; border-left: 4px solid #0073aa; }
+.wcb-bundle-group { margin-bottom: 25px; padding: 20px; border-bottom: 1px solid #e0e0e0; border-left: 5px solid; transition: border-color 0.3s ease; }
+.wcb-bundle-group:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 10px; }
+.wcb-group-title { font-size: 1.5em; margin-top: 0; margin-bottom: 10px; color: #333; }
+.wcb-group-description { font-style: italic; color: #555; margin-bottom: 20px; }
+.wcb-product-item { padding: 15px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; }
+.wcb-product-item > label { display: flex; align-items: center; cursor: pointer; font-weight: normal; margin-bottom: 0; }
+.wcb-product-item input[type="radio"], .wcb-product-item input[type="checkbox"] { margin-right: 15px; min-width: 18px; height: 18px; }
+.wcb-product-name { flex-grow: 1; font-weight: bold; }
+.wcb-product-price { margin-left: 15px; font-weight: bold; color: #0073aa; }
+.wcb-quantity-input { margin-left: 15px; width: 70px; text-align: center; }
+
+/* Stili per le varianti e la personalizzazione */
+.wcb-variation-container,
+.wcb-variation-sets-container,
+.wcb-personalization-field-container { 
+    margin-top: 15px; 
+    padding: 15px; 
+    background: #fdfdfd; 
+    border: 1px dashed #ccc; 
+    border-radius: 3px; 
+}
+.wcb-variation-field, .wcb-personalization-field { 
+    display: flex; 
+    align-items: center; 
+    margin-bottom: 10px; 
+}
+.wcb-variation-field:last-child, .wcb-personalization-field:last-child { 
+    margin-bottom: 0; 
+}
+.wcb-variation-field > label, .wcb-personalization-field > label { 
+    font-weight: bold; 
+    margin-right: 10px; 
+    min-width: 100px; 
+}
+.wcb-variation-field select, .wcb-personalization-field input[type="text"] { 
+    width: 100%; 
+}
+.wcb-variation-set { 
+    padding-top: 15px; 
+    border-top: 1px solid #eee; 
+    margin-top: 15px; 
+}
+.wcb-variation-set:first-child { 
+    border-top: none; 
+    margin-top: 0; 
+    padding-top: 0; 
+}
+.wcb-variation-set h5 { 
+    margin: 0 0 10px; 
+    font-size: 1em; 
+    color: #555; 
+}
+
+/* Stili per la validazione */
+.wcb-group-incomplete { border-left-color: #c9356e !important; }
+.wcb-group-complete { border-left-color: #46b450 !important; }
+select option:disabled { color: #aaaaaa; background-color: #f5f5f5; }
+
+/* Stile per pulsante, messaggi e campi input moderni */
+.woocommerce-variation-add-to-cart { margin-top: 20px; }
+.single_add_to_cart_button.button.alt {
+    background-color: #0073aa;
+    color: #ffffff;
+    padding: 10px 20px;
+    border-radius: 5px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+.single_add_to_cart_button.button.alt:hover:not(:disabled) {
+    background-color: #005a87;
+}
+.single_add_to_cart_button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed !important;
+}
+#wcb-ajax-messages .woocommerce-error, #wcb-ajax-messages .woocommerce-message {
+    margin: 0 0 20px 0 !important;
+    padding: 1em 2em 1em 3.5em !important;
+}
+
+/* Stile unificato e moderno per tutti i campi input del bundle */
+.wcb-bundle-container input[type="text"],
+.wcb-bundle-container input[type="number"],
+.wcb-bundle-container select {
+    border: 1px solid #ddd;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.07);
+    background-color: #fff;
+    color: #32373c;
+    outline: 0;
+    transition: 50ms border-color ease-in-out;
+    padding: 8px 10px;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+.wcb-bundle-container input[type="text"]:focus,
+.wcb-bundle-container input[type="number"]:focus,
+.wcb-bundle-container select:focus {
+    border-color: #0073aa;
+    box-shadow: 0 0 0 1px #0073aa;
+}
+
+/* Stile per l'errore di validazione sul campo di testo */
+.wcb-personalization-input.wcb-input-error {
+    border-color: #c9356e !important;
+    box-shadow: 0 0 0 1px #c9356e !important;
+}
+
+/* Stile per l'asterisco dei campi obbligatori */
+.wcb-personalization-field-container .required,
+.wcb-personalization-field .required {
+    color: #c9356e;
+    font-weight: bold;
+    padding-left: 2px;
+}
