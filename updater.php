@@ -1,7 +1,7 @@
 <?php
 /**
  * WCB GitHub Updater (Versione Finale Definitiva)
- * @version 1.6.0
+ * @version 1.7.0
  */
 
 if ( ! class_exists( 'WCB_GitHub_Updater' ) ) {
@@ -56,18 +56,18 @@ if ( ! class_exists( 'WCB_GitHub_Updater' ) ) {
 
             if ( version_compare( $github_version, $installed_version, '>' ) ) {
                 
-                // Cerca un pacchetto .zip caricato manualmente come "asset" della release
+                // --- LOGICA MODIFICATA E PIÙ ROBUSTA ---
                 $package_url = '';
                 if ( ! empty( $this->github_response->assets ) ) {
                     foreach ( $this->github_response->assets as $asset ) {
-                        if ( 'application/zip' === $asset->content_type ) {
+                        // Cerca un file allegato che finisce con ".zip"
+                        if ( '.zip' === substr( $asset->name, -4 ) ) {
                             $package_url = $asset->browser_download_url;
                             break;
                         }
                     }
                 }
 
-                // Se non trova un asset, usa come fallback lo zip auto-generato
                 if ( empty( $package_url ) ) {
                     $package_url = $this->github_response->zipball_url;
                 }
