@@ -1,7 +1,7 @@
 <?php
 /**
  * WCB GitHub Updater (Versione Finale Definitiva)
- * @version 1.5.0
+ * @version 1.6.0
  */
 
 if ( ! class_exists( 'WCB_GitHub_Updater' ) ) {
@@ -16,7 +16,6 @@ if ( ! class_exists( 'WCB_GitHub_Updater' ) ) {
             $this->file = $file;
             add_action( 'admin_init', [ $this, 'set_plugin_properties' ] );
             add_filter( 'pre_set_site_transient_update_plugins', [ $this, 'check_for_update' ], 10, 1 );
-            add_filter( 'upgrader_source_selection', [ $this, 'rename_github_zip' ], 10, 3 );
         }
 
         public function set_plugin_properties() {
@@ -56,11 +55,28 @@ if ( ! class_exists( 'WCB_GitHub_Updater' ) ) {
             $github_version = trim( ltrim( $this->github_response->tag_name, 'vV' ) );
 
             if ( version_compare( $github_version, $installed_version, '>' ) ) {
+                
+                // Cerca un pacchetto .zip caricato manualmente come "asset" della release
+                $package_url = '';
+                if ( ! empty( $this->github_response->assets ) ) {
+                    foreach ( $this->github_response->assets as $asset ) {
+                        if ( 'application/zip' === $asset->content_type ) {
+                            $package_url = $asset->browser_download_url;
+                            break;
+                        }
+                    }
+                }
+
+                // Se non trova un asset, usa come fallback lo zip auto-generato
+                if ( empty( $package_url ) ) {
+                    $package_url = $this->github_response->zipball_url;
+                }
+
                 $obj = new stdClass();
                 $obj->slug        = $this->basename;
                 $obj->new_version = $this->github_response->tag_name;
                 $obj->url         = $this->plugin_data["PluginURI"] ?? 'https://github.com/' . $this->github_repo;
-                $obj->package     = $this->github_response->zipball_url;
+                $obj->package     = $package_url;
                 
                 if ( ! empty( $this->plugin_data['TestedUpto'] ) ) {
                     $obj->tested = $this->plugin_data['TestedUpto'];
@@ -73,33 +89,6 @@ if ( ! class_exists( 'WCB_GitHub_Updater' ) ) {
             }
 
             return $transient;
-        }
-
-        /**
-         * Rinomina la cartella del plugin estratta dallo zip di GitHub per
-         * corrispondere alla slug corretta del plugin.
-         */
-        public function rename_github_zip( $source, $remote_source, $upgrader ) {
-            // Controlla se l'aggiornamento è per il nostro plugin
-            if ( isset( $upgrader->skin->plugin_info ) && $upgrader->skin->plugin_info['Name'] === $this->plugin_data['Name'] ) {
-                
-                // Il percorso della cartella appena estratta (es. .../upgrade/Gianfry70IT-...)
-                $unzipped_folder = $source;
-                
-                // Il nome corretto della cartella del nostro plugin (es. 'wooc-bundle-gia70')
-                $correct_folder_name = dirname( $this->basename );
-
-                // Il percorso completo della cartella di destinazione rinominata
-                $destination_folder = trailingslashit( dirname( $unzipped_folder ) ) . $correct_folder_name;
-
-                // Rinomina la cartella
-                rename( $unzipped_folder, $destination_folder );
-
-                // Restituisce il nuovo percorso a WordPress per continuare l'installazione
-                return $destination_folder;
-            }
-
-            return $source;
         }
     }
 }
