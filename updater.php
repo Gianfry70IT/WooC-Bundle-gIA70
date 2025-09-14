@@ -1,7 +1,7 @@
 <?php
 /**
  * WCB GitHub Updater (Versione Finale Definitiva)
- * @version 1.4.0
+ * @version 1.5.0
  */
 
 if ( ! class_exists( 'WCB_GitHub_Updater' ) ) {
@@ -16,7 +16,7 @@ if ( ! class_exists( 'WCB_GitHub_Updater' ) ) {
             $this->file = $file;
             add_action( 'admin_init', [ $this, 'set_plugin_properties' ] );
             add_filter( 'pre_set_site_transient_update_plugins', [ $this, 'check_for_update' ], 10, 1 );
-            add_filter( 'upgrader_source_selection', [ $this, 'rename_github_zip' ], 10, 4 );
+            add_filter( 'upgrader_source_selection', [ $this, 'rename_github_zip' ], 10, 3 );
         }
 
         public function set_plugin_properties() {
@@ -76,16 +76,27 @@ if ( ! class_exists( 'WCB_GitHub_Updater' ) ) {
         }
 
         /**
-         * Rinomina la cartella del plugin estratta dallo zip di GitHub.
+         * Rinomina la cartella del plugin estratta dallo zip di GitHub per
+         * corrispondere alla slug corretta del plugin.
          */
-        public function rename_github_zip( $source, $remote_source, $wp_upgrader, $hook_extra = null ) {
-            global $wp_filesystem;
-            
-            $plugin = $hook_extra['plugin'] ?? '';
-            if ( $plugin === $this->basename ) {
-                $new_source = trailingslashit( $remote_source ) . dirname( $this->basename );
-                $wp_filesystem->move( $source, $new_source, true );
-                return $new_source;
+        public function rename_github_zip( $source, $remote_source, $upgrader ) {
+            // Controlla se l'aggiornamento è per il nostro plugin
+            if ( isset( $upgrader->skin->plugin_info ) && $upgrader->skin->plugin_info['Name'] === $this->plugin_data['Name'] ) {
+                
+                // Il percorso della cartella appena estratta (es. .../upgrade/Gianfry70IT-...)
+                $unzipped_folder = $source;
+                
+                // Il nome corretto della cartella del nostro plugin (es. 'wooc-bundle-gia70')
+                $correct_folder_name = dirname( $this->basename );
+
+                // Il percorso completo della cartella di destinazione rinominata
+                $destination_folder = trailingslashit( dirname( $unzipped_folder ) ) . $correct_folder_name;
+
+                // Rinomina la cartella
+                rename( $unzipped_folder, $destination_folder );
+
+                // Restituisce il nuovo percorso a WordPress per continuare l'installazione
+                return $destination_folder;
             }
 
             return $source;
