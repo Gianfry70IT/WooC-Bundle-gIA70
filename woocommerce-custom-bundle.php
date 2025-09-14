@@ -2,10 +2,11 @@
 /**
  * Plugin Name:		WooC Bundle gIA70
  * Description:       	Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           	0.8.3
- * Author:            	Gianfranco Greco
- * License:           	GPL-2.0+
- * Text Domain:       	wcb-framework
+ * Version:           	0.8.4
+ * Author:            	Gianfranco Greco con Codice Sorgente
+ * Copyright (c) 2025 	Gianfranco Greco
+ * Licensed under the 	GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:       	wcb-framework
  * GitHub Plugin URI:	Gianfry70IT/WooC-Bundle-gIA70
  * Primary Branch:	main
  */
