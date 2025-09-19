@@ -87,6 +87,12 @@
     padding-bottom: 10px;
     border-bottom: 2px solid #e0e0e0;
 }
+
+/* in assets/admin.css */
+.bundle_price_field_wrapper {
+    display: none;
+}
+
 .toolbar {
     margin: 20px 0;
     padding-top: 20px;

@@ -5,6 +5,49 @@
 jQuery(document).ready(function($) {
     const $groupsContainer = $('#bundle_groups_container');
 
+    // --- LOGICA UNIFICATA PER LA VISIBILITÀ DEI CAMPI ---
+    function gestisciVisibilitaGenerale() {
+        const productType = $('#product-type').val();
+
+        // Se non è il nostro tipo di prodotto, non facciamo nulla e nascondiamo i nostri campi.
+        if (productType !== 'custom_bundle') {
+            $('.bundle_price_field_wrapper').hide();
+            $('.wcb-signature').hide();
+            return;
+        }
+
+        // 1. FORZA LA VISIBILITÀ DEI CAMPI PREZZO DI WOOCOMMERCE
+        $('.pricing.show_if_simple').addClass('show_if_custom_bundle').show();
+
+        // 2. GESTISCI I NOSTRI CAMPI PERSONALIZZATI (SCONTI VS FISSO)
+        const tipoPrezzo = $('#_bundle_pricing_type').val();
+        const $campiCalcolati = $('.bundle_price_calculated_field');
+        const $campiFissi = $('.bundle_price_fixed_field');
+
+        if (tipoPrezzo === 'calculated') {
+            $campiCalcolati.show();
+            $campiFissi.hide();
+        } else { // 'fixed'
+            $campiCalcolati.hide();
+            $campiFissi.show();
+        }
+
+        // 3. GESTISCI LA FIRMA
+        const $signature = $('.wcb-signature');
+        $signature.show();
+    }
+
+    // Aggiungi gli event listener corretti
+    $('body').on('change', '#product-type, #_bundle_pricing_type', function() {
+        gestisciVisibilitaGenerale();
+    });
+
+    // Esegui al caricamento della pagina per impostare lo stato iniziale
+    gestisciVisibilitaGenerale();
+
+
+    // --- TUTTO IL RESTO DEL CODICE PER LA GESTIONE DEI GRUPPI (INVARIATO) ---
+    
     function getGroupHtml(groupIndex, data = {}) {
         const title = data.title || '';
         const min_qty = data.min_qty || 1;
@@ -16,37 +59,44 @@ jQuery(document).ready(function($) {
         const personalization_enabled = data.personalization_enabled === 'yes' ? 'checked' : '';
         const personalization_label = data.personalization_label || 'Il tuo Nome';
         const personalization_required = data.personalization_required === 'yes' ? 'checked' : '';
-    
+
         let optionsHtml = '';
         if (products.length > 0) {
             products.forEach(product => {
                 optionsHtml += `<option value="${product.id}" selected="selected">${product.text}</option>`;
             });
         }
-    
+
         return `
-            <div class="bundle-group options_group" data-group-index="${groupIndex}">
-                <div class="group-header"><span class="sort-handle">☰</span><h3 class="group-title">${title || 'Nuovo Gruppo'}</h3><button type="button" class="button remove-group" title="Rimuovi Gruppo">X</button></div>
-                <div class="group-content">
-                    <p class="form-field"><label>Titolo Gruppo</label><input type="text" class="group-title-input" name="_bundle_groups[${groupIndex}][title]" value="${title}"></p>
-                    <p class="form-field"><label>Prodotti Selezionabili</label><select class="wc-product-search" multiple="multiple" style="width: 100%;" name="_bundle_groups[${groupIndex}][products][]" data-placeholder="Cerca prodotti..." data-action="wcb_custom_product_search">${optionsHtml}</select></p>
-                    <hr/><h4>Regole di Selezione</h4>
-                    <p class="form-field"><label><input type="checkbox" name="_bundle_groups[${groupIndex}][is_required]" value="yes" ${is_required}> Gruppo Obbligatorio</label></p>
-                    <p class="form-field"><label>Modalità di Selezione</label><select class="selection-mode-select" name="_bundle_groups[${groupIndex}][selection_mode]"><option value="single" ${selection_mode === 'single' ? 'selected' : ''}>Scelta Singola</option><option value="multiple" ${selection_mode === 'multiple' ? 'selected' : ''}>Scelta Multipla</option><option value="quantity" ${selection_mode === 'quantity' ? 'selected' : ''}>Scelta a Quantità</option></select></p>
-                    <p class="form-field half-width rule-field rule-multiple" style="display: ${selection_mode === 'multiple' ? 'block' : 'none'};"><label>Quantità Minima</label><input type="number" name="_bundle_groups[${groupIndex}][min_qty]" value="${min_qty}" min="0" step="1"></p>
-                    <p class="form-field half-width rule-field rule-multiple" style="display: ${selection_mode === 'multiple' ? 'block' : 'none'};"><label>Quantità Massima</label><input type="number" name="_bundle_groups[${groupIndex}][max_qty]" value="${max_qty}" min="0" step="1"></p>
-                    <p class="form-field rule-field rule-quantity" style="display: ${selection_mode === 'quantity' ? 'block' : 'none'};"><label>Quantità Totale</label><input type="number" name="_bundle_groups[${groupIndex}][total_qty]" value="${total_qty}" min="1" step="1"></p>
-                    <hr/><h4>Opzioni di Personalizzazione</h4>
-                    <p class="form-field"><label><input type="checkbox" class="personalization-enable" name="_bundle_groups[${groupIndex}][personalization_enabled]" value="yes" ${personalization_enabled}> Abilita campo di testo personalizzato</label></p>
-                    <div class="personalization-options" style="display: ${personalization_enabled ? 'block' : 'none'};">
-                        <p class="form-field"><label>Etichetta del campo di testo</label><input type="text" name="_bundle_groups[${groupIndex}][personalization_label]" value="${personalization_label}"></p>
-                        <p class="form-field"><label><input type="checkbox" name="_bundle_groups[${groupIndex}][personalization_required]" value="yes" ${personalization_required}> Rendi la personalizzazione obbligatoria</label></p>
-                    </div>
+        <div class="bundle-group options_group" data-group-index="${groupIndex}">
+            <div class="group-header"><span class="sort-handle">☰</span><h3 class="group-title">${title || 'Nuovo Gruppo'}</h3><button type="button" class="button remove-group" title="Rimuovi Gruppo">X</button></div>
+            <div class="group-content">
+                <p class="form-field"><label>Titolo Gruppo</label><input type="text" class="group-title-input" name="_bundle_groups[${groupIndex}][title]" value="${title}"></p>
+                <p class="form-field"><label>Prodotti Selezionabili</label><select class="wc-product-search" multiple="multiple" style="width: 100%;" name="_bundle_groups[${groupIndex}][products][]" data-placeholder="Cerca prodotti..." data-action="wcb_custom_product_search">${optionsHtml}</select></p>
+                <hr/><h4>Regole di Selezione</h4>
+                <p class="form-field"><label><input type="checkbox" name="_bundle_groups[${groupIndex}][is_required]" value="yes" ${is_required}> Gruppo Obbligatorio</label></p>
+                <p class="form-field"><label>Modalità di Selezione</label>
+                    <select class="selection-mode-select" name="_bundle_groups[${groupIndex}][selection_mode]">
+                        <option value="single" ${selection_mode === 'single' ? 'selected' : ''}>Scelta Singola</option>
+                        <option value="multiple" ${selection_mode === 'multiple' ? 'selected' : ''}>Scelta Multipla</option>
+                        <option value="quantity" ${selection_mode === 'quantity' ? 'selected' : ''}>Scelta a Quantità Fissa</option>
+                        <option value="multiple_quantity" ${selection_mode === 'multiple_quantity' ? 'selected' : ''}>Quantità Multipla a Range</option>
+                    </select>
+                </p>
+                <p class="form-field half-width rule-field rule-multiple" style="display: ${selection_mode === 'multiple' ? 'block' : 'none'};"><label>Quantità Minima</label><input type="number" name="_bundle_groups[${groupIndex}][min_qty]" value="${min_qty}" min="0" step="1"></p>
+                <p class="form-field half-width rule-field rule-multiple" style="display: ${selection_mode === 'multiple' ? 'block' : 'none'};"><label>Quantità Massima</label><input type="number" name="_bundle_groups[${groupIndex}][max_qty]" value="${max_qty}" min="0" step="1"></p>
+                <p class="form-field rule-field rule-quantity" style="display: ${selection_mode === 'quantity' ? 'block' : 'none'};"><label>Quantità Totale</label><input type="number" name="_bundle_groups[${groupIndex}][total_qty]" value="${total_qty}" min="1" step="1"></p>
+                <hr/><h4>Opzioni di Personalizzazione</h4>
+                <p class="form-field"><label><input type="checkbox" class="personalization-enable" name="_bundle_groups[${groupIndex}][personalization_enabled]" value="yes" ${personalization_enabled}> Abilita campo di testo personalizzato</label></p>
+                <div class="personalization-options" style="display: ${personalization_enabled ? 'block' : 'none'};">
+                    <p class="form-field"><label>Etichetta del campo di testo</label><input type="text" name="_bundle_groups[${groupIndex}][personalization_label]" value="${personalization_label}"></p>
+                    <p class="form-field"><label><input type="checkbox" name="_bundle_groups[${groupIndex}][personalization_required]" value="yes" ${personalization_required}> Rendi la personalizzazione obbligatoria</label></p>
                 </div>
             </div>
+        </div>
         `;
     }
-    
+
     function reindexGroups() {
         $groupsContainer.find('.bundle-group').each(function(newIndex, group) {
             $(group).attr('data-group-index', newIndex);
@@ -60,10 +110,22 @@ jQuery(document).ready(function($) {
         $target.each(function() {
             if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
             const select2_args = {
-                allowClear: $(this).data('allow_clear') ? true : false, placeholder: $(this).data('placeholder'), minimumInputLength: $(this).data('minimum_input_length') ? $(this).data('minimum_input_length') : '3', escapeMarkup: function(markup) { return markup; },
+                allowClear: $(this).data('allow_clear') ? true : false,
+                placeholder: $(this).data('placeholder'),
+                minimumInputLength: $(this).data('minimum_input_length') ? $(this).data('minimum_input_length') : '3',
+                escapeMarkup: function(markup) { return markup; },
                 ajax: {
-                    url: wc_enhanced_select_params.ajax_url, dataType: 'json', delay: 250,
-                    data: function(params) { return { term: params.term, action: 'wcb_custom_product_search', security: wc_enhanced_select_params.search_products_nonce, exclude: $(this).attr('data-exclude') || '' }; },
+                    url: wc_enhanced_select_params.ajax_url,
+                    dataType: 'json',
+                    delay: 250,
+                    data: function(params) {
+                        return {
+                            term: params.term,
+                            action: 'wcb_custom_product_search',
+                            security: wc_enhanced_select_params.search_products_nonce,
+                            exclude: $(this).closest('p').find('select').attr('data-exclude') || ''
+                        };
+                    },
                     processResults: function(data) {
                         const terms = [];
                         if (data) $.each(data, function(id, text) { terms.push({ id: id, text: text }); });
@@ -80,7 +142,9 @@ jQuery(document).ready(function($) {
         const allSelectedIds = new Set();
         $groupsContainer.find('select.wc-product-search').each(function() {
             const selected = $(this).val();
-            if (selected) (Array.isArray(selected) ? selected : [selected]).forEach(id => allSelectedIds.add(id.toString()));
+            if (selected) {
+                (Array.isArray(selected) ? selected : [selected]).forEach(id => allSelectedIds.add(id.toString()));
+            }
         });
         const idsToExclude = Array.from(allSelectedIds).join(',');
         $groupsContainer.find('select.wc-product-search').attr('data-exclude', idsToExclude);
@@ -94,8 +158,11 @@ jQuery(document).ready(function($) {
         const maxVal = parseInt($maxInput.val(), 10);
         if (!isNaN(minVal)) {
             $maxInput.attr('min', minVal);
-            if (maxVal > 0 && !isNaN(maxVal) && maxVal < minVal) $maxInput.val(minVal).addClass('error');
-            else $maxInput.removeClass('error');
+            if (maxVal > 0 && !isNaN(maxVal) && maxVal < minVal) {
+                $maxInput.val(minVal).addClass('error');
+            } else {
+                $maxInput.removeClass('error');
+            }
         }
     }
 
@@ -127,9 +194,13 @@ jQuery(document).ready(function($) {
         const $group = $(this).closest('.bundle-group');
         const mode = $(this).val();
         $group.find('.rule-field').hide();
-        $group.find('.rule-' + mode).show();
+        if (mode === 'multiple' || mode === 'multiple_quantity') {
+            $group.find('.rule-multiple').show();
+        } else {
+            $group.find('.rule-' + mode).show();
+        }
     });
-    
+
     $groupsContainer.on('keyup', '.group-title-input', function() {
         const newTitle = $(this).val() || 'Nuovo Gruppo';
         $(this).closest('.bundle-group').find('.group-title').text(newTitle);
@@ -137,29 +208,23 @@ jQuery(document).ready(function($) {
 
     $groupsContainer.on('change', '.personalization-enable', function() {
         const $options = $(this).closest('.group-content').find('.personalization-options');
-        if ($(this).is(':checked')) $options.slideDown();
-        else $options.slideUp();
-    });
-
-    $groupsContainer.sortable({ handle: '.sort-handle', update: function() { reindexGroups(); updateProductExclusions(); } });
-    $groupsContainer.on('change', 'select.wc-product-search', function() { updateProductExclusions(); });
-    $groupsContainer.on('change input', 'input[name$="[min_qty]"], input[name$="[max_qty]"]', function() { validateMinMax($(this).closest('.bundle-group')); });
-    
-    function gestisciVisibilitaFirma() {
-        const productType = $('#product-type').val();
-        const $signature = $('.wcb-signature');
-
-        if (productType === 'custom_bundle') {
-            $signature.show();
+        if ($(this).is(':checked')) {
+            $options.slideDown();
         } else {
-            $signature.hide();
+            $options.slideUp();
         }
-    }
-
-    gestisciVisibilitaFirma();
-
-    $('#product-type').on('change', function() {
-        gestisciVisibilitaFirma();
     });
 
+    $groupsContainer.sortable({
+        handle: '.sort-handle',
+        update: function() {
+            reindexGroups();
+            updateProductExclusions();
+        }
+    });
+
+    $groupsContainer.on('change', 'select.wc-product-search', function() { updateProductExclusions(); });
+    $groupsContainer.on('change input', 'input[name$="[min_qty]"], input[name$="[max_qty]"]', function() {
+        validateMinMax($(this).closest('.bundle-group'));
+    });
 });

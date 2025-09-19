@@ -138,6 +138,29 @@ jQuery(document).ready(function($) {
                 });
                 return allOk;
             }
+            case 'multiple_quantity': {
+                const min = $group.data('min-qty');
+                const max = $group.data('max-qty');
+                let currentTotal = 0;
+                let allOk = true;
+        
+                $group.find('.wcb-quantity-input').each(function() {
+                    const qty = parseInt($(this).val()) || 0;
+                    currentTotal += qty;
+                    if (qty > 0) {
+                        const $productItem = $(this).closest('.wcb-product-item');
+                        if (!areVariationsComplete($productItem) || !isPersonalizationComplete($productItem)) {
+                            allOk = false;
+                        }
+                    }
+                });
+        
+                if (currentTotal < min || (max > 0 && currentTotal > max)) {
+                    return false;
+                }
+        
+                return allOk;
+            }
             case 'quantity': {
                 const totalQty = $group.data('total-qty');
                 let currentTotal = 0;

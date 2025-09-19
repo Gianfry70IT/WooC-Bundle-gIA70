@@ -46,6 +46,12 @@ global $product;
                             if ($max_qty > 0) { echo sprintf( esc_html__( 'Scegli da %d a %d prodotti.', 'wcb-framework' ), $min_qty, $max_qty ); } 
                             else { echo sprintf( esc_html__( 'Scegli almeno %d prodotti.', 'wcb-framework' ), $min_qty ); }
                             break;
+                        case 'multiple_quantity':
+                            $min_qty = absint($group['min_qty'] ?? 0);
+                            $max_qty = absint($group['max_qty'] ?? 0);
+                            if ($max_qty > 0) { echo sprintf( esc_html__( 'Scegli una quantità totale da %d a %d prodotti.', 'wcb-framework' ), $min_qty, $max_qty ); } 
+                            else { echo sprintf( esc_html__( 'Scegli una quantità totale di almeno %d prodotti.', 'wcb-framework' ), $min_qty ); }
+                            break;
                         case 'quantity': echo sprintf( esc_html__( 'Scegli una quantità totale di %d prodotti.', 'wcb-framework' ), absint($group['total_qty'] ?? 0) ); break;
                     }
                     ?>
@@ -73,7 +79,7 @@ global $product;
                                 <?php endif; ?>
                                 <span class="wcb-product-name"><?php echo esc_html( $child_product->get_name() ); ?></span>
                                 <span class="wcb-product-price"><?php echo $child_product->get_price_html(); ?></span>
-                                <?php if ( 'quantity' === $selection_mode || 'multiple_quantity' === $selection_mode ) : ?>
+                                <?php if ( 'quantity' === $selection_mode ) : ?>
                                     <input class="wcb-quantity-input" type="number" name="wcb_quantity[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>]" value="0" min="0" step="1">
                                 <?php endif; ?>
                             </label>
