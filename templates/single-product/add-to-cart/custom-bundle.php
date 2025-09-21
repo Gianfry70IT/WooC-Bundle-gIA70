@@ -12,7 +12,7 @@ global $product;
 <div id="wcb-ajax-messages"></div>
 
 <!-- Lightbox Container -->
-<div id="wcb-lightbox" class="wcb-lightbox" style="display: none;">
+<div id="wcb-lightbox" class="wcb-lightbox">
     <div class="wcb-lightbox-content">
         <span class="wcb-lightbox-close">&times;</span>
         <img class="wcb-lightbox-image" src="" alt="">
@@ -21,6 +21,10 @@ global $product;
 </div>
 
 <div class="wcb-bundle-container">
+    <div class="wcb-bundle-price-container">
+        <!-- Il contenitore del prezzo verrà inserito qui dal JavaScript -->
+    </div>
+    
     <?php if ( ! empty( $instructions ) ) : ?>
         <div class="wcb-bundle-instructions"><?php echo wp_kses_post( wpautop( $instructions ) ); ?></div>
     <?php endif; ?>
@@ -47,16 +51,7 @@ global $product;
                 <h3 class="wcb-group-title"><?php echo esc_html( $group['title'] ); ?></h3>
                 <div class="wcb-group-description">
                     <?php
-                    switch ($selection_mode) {
-                        case 'single': echo esc_html__( 'Scegli un prodotto.', 'wcb-framework' ); break;
-                        case 'multiple':
-                            $min_qty = absint($group['min_qty'] ?? 0);
-                            $max_qty = absint($group['max_qty'] ?? 0);
-                            if ($max_qty > 0) { echo sprintf( esc_html__( 'Scegli da %d a %d prodotti.', 'wcb-framework' ), $min_qty, $max_qty ); } 
-                            else { echo sprintf( esc_html__( 'Scegli almeno %d prodotti.', 'wcb-framework' ), $min_qty ); }
-                            break;
-                        case 'quantity': echo sprintf( esc_html__( 'Scegli una quantità totale di %d prodotti.', 'wcb-framework' ), absint($group['total_qty'] ?? 0) ); break;
-                    }
+                    // Descrizioni dinamiche qui...
                     ?>
                 </div>
                 <div class="wcb-group-products">
@@ -64,30 +59,30 @@ global $product;
                         $child_product = wc_get_product( $product_id ); if ( ! $child_product ) continue; 
                         $variation_data = [];
                         if ($child_product->is_type('variable')) {
-                            foreach ($child_product->get_available_variations() as $variation) {
-                                if (!empty($variation['attributes'])) $variation_data[] = $variation['attributes'];
+                            $available_variations = $child_product->get_available_variations();
+                            foreach ($available_variations as $variation) {
+                                if (!empty($variation['attributes'])) {
+                                    $variation_data[] = $variation['attributes'];
+                                }
                             }
                         }
                         
-                        // Ottieni l'immagine del prodotto
                         $image_id = $child_product->get_image_id();
                         $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
                         $full_image_url = $image_id ? wp_get_attachment_image_url($image_id, 'full') : wc_placeholder_img_src('full');
                         ?>
                         <div class="wcb-product-item" 
                             data-product-id="<?php echo esc_attr($product_id); ?>"
-                            data-base-price="<?php echo esc_attr($child_product->get_price()); ?>"
-                            <?php if(!empty($variation_data)) echo "data-variation-data='" . esc_attr(json_encode($variation_data)) . "'"; ?>
+                            <?php if(!empty($variation_data)) echo "data-variation-data='" . esc_attr(json_encode(array_values($variation_data))) . "'"; ?>
                             <?php if($personalization_enabled && $personalization_required) echo 'data-personalization-required="true"'; ?>>
     
                             <label>
-                                <?php if ( 'single' === $selection_mode ) : ?>
-                                    <input type="radio" name="bundle_selection_radio[<?php echo esc_attr( $group_index ); ?>]" value="<?php echo esc_attr( $product_id ); ?>">
-                                <?php elseif ( 'multiple' === $selection_mode ) : ?>
-                                    <input type="checkbox" name="bundle_selection[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>][selected]" value="1">
+                                <?php if ( in_array( $selection_mode, ['single', 'multiple'] ) ) : ?>
+                                    <input type="<?php echo $selection_mode === 'single' ? 'radio' : 'checkbox'; ?>" 
+                                           name="bundle_selection<?php echo $selection_mode === 'single' ? '_radio' : ''; ?>[<?php echo esc_attr( $group_index ); ?>]<?php echo $selection_mode === 'multiple' ? '['.esc_attr($product_id).'][selected]' : ''; ?>"
+                                           value="<?php echo $selection_mode === 'single' ? esc_attr($product_id) : '1'; ?>">
                                 <?php endif; ?>
                                 
-                                <!-- Aggiungi l'immagine thumbnail -->
                                 <div class="wcb-product-thumbnail">
                                     <img src="<?php echo esc_url($image_url); ?>" 
                                          alt="<?php echo esc_attr($child_product->get_name()); ?>"
@@ -100,7 +95,7 @@ global $product;
                                     <span class="wcb-product-price"><?php echo $child_product->get_price_html(); ?></span>
                                 </div>
                                 
-                                <?php if ( 'quantity' === $selection_mode || 'multiple_quantity' === $selection_mode ) : ?>
+                                <?php if ( in_array( $selection_mode, ['quantity', 'multiple_quantity'] ) ) : ?>
                                     <input class="wcb-quantity-input" type="number" name="wcb_quantity[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>]" value="0" min="0" step="1">
                                 <?php endif; ?>
                             </label>
@@ -112,24 +107,35 @@ global $product;
                                 </div>
                             <?php endif; ?>
 
-                            <div class="wcb-variation-container" style="display:none;"><?php if ( $child_product->is_type( 'variable' ) ) : foreach ( $child_product->get_variation_attributes() as $attribute_name => $options ) : ?>
-                                <div class="wcb-variation-field"><label><?php echo wc_attribute_label( $attribute_name ); ?>:</label><select class="wcb-variation-select" name="bundle_selection[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>][attributes][attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>]" data-attribute-name="attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>" disabled><option value=""><?php _e('Scegli un\'opzione', 'wcb-framework'); ?></option><?php foreach ( $options as $option ) : ?><option value="<?php echo esc_attr( $option ); ?>"><?php echo esc_html( $option ); ?></option><?php endforeach; ?></select></div>
-                            <?php endforeach; endif; ?></div>
-                            
-                            <div class="wcb-variation-sets-container"></div>
-                            
-                            <?php if ( $child_product->is_type( 'variable' ) && 'quantity' === $selection_mode ) : ?>
-                                <div class="wcb-variation-fields-template" style="display: none;"><?php foreach ( $child_product->get_variation_attributes() as $attribute_name => $options ) : ?>
-                                    <div class="wcb-variation-field"><label><?php echo wc_attribute_label( $attribute_name ); ?>:</label><select class="wcb-variation-select" name="wcb_variation_sets[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>][__INDEX__][attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>]" data-attribute-name="attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>" disabled><option value=""><?php _e('Scegli un\'opzione', 'wcb-framework'); ?></option><?php foreach ( $options as $option ) : ?><option value="<?php echo esc_attr( $option ); ?>"><?php echo esc_html( $option ); ?></option><?php endforeach; ?></select></div>
-                                <?php endforeach; ?></div>
-                            <?php endif; ?>
-                            
-                            <?php if ($personalization_enabled && $selection_mode === 'quantity') : ?>
-                                <div class="wcb-personalization-field-template" style="display: none;">
-                                    <div class="wcb-personalization-field">
-                                        <label><?php echo esc_html($personalization_label); ?><?php if ($personalization_required) echo ' <span class="required">*</span>'; ?></label>
-                                        <input type="text" class="wcb-personalization-input" name="wcb_personalization[<?php echo esc_attr($group_index); ?>][<?php echo esc_attr($product_id); ?>][__INDEX__]">
-                                    </div>
+                            <?php if ( $child_product->is_type( 'variable' ) ) : ?>
+                                <div class="wcb-variation-container" style="display:none;">
+                                    <?php foreach ( $child_product->get_variation_attributes() as $attribute_name => $options ) : ?>
+                                        <div class="wcb-variation-field">
+                                            <label><?php echo wc_attribute_label( $attribute_name ); ?>:</label>
+                                            <select class="wcb-variation-select" 
+                                                    name="bundle_selection[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>][attributes][attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>]" 
+                                                    data-attribute-name="attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>" disabled>
+                                                <option value=""><?php _e('Scegli un\'opzione', 'wcb-framework'); ?></option>
+                                                <?php foreach ( $options as $option ) : ?>
+                                                    <option value="<?php echo esc_attr( $option ); ?>"><?php echo esc_html( $option ); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                
+                                <div class="wcb-variation-sets-container" style="display:none;"></div>
+                                
+                                <div class="wcb-templates" style="display:none;">
+                                    <div class="wcb-variation-fields-template"><?php foreach ( $child_product->get_variation_attributes() as $attribute_name => $options ) : ?>
+                                        <div class="wcb-variation-field"><label><?php echo wc_attribute_label( $attribute_name ); ?>:</label><select class="wcb-variation-select" name="wcb_variation_sets[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>][__INDEX__][attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>]" data-attribute-name="attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>" disabled><option value=""><?php _e('Scegli un\'opzione', 'wcb-framework'); ?></option><?php foreach ( $options as $option ) : ?><option value="<?php echo esc_attr( $option ); ?>"><?php echo esc_html( $option ); ?></option><?php endforeach; ?></select></div>
+                                    <?php endforeach; ?></div>
+                                    
+                                    <?php if ($personalization_enabled) : ?>
+                                        <div class="wcb-personalization-field-template">
+                                            <div class="wcb-personalization-field"><label><?php echo esc_html($personalization_label); ?><?php if ($personalization_required) echo ' <span class="required">*</span>'; ?></label><input type="text" class="wcb-personalization-input" name="wcb_personalization[<?php echo esc_attr($group_index); ?>][<?php echo esc_attr($product_id); ?>][__INDEX__]"></div>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -140,3 +146,4 @@ global $product;
         <div class="woocommerce-variation-add-to-cart variations_button"><button type="submit" class="single_add_to_cart_button button alt" disabled><?php echo esc_html( $product->single_add_to_cart_text() ); ?></button></div>
     </form>
 </div>
+

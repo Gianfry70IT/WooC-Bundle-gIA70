@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WooC Bundle gIA70
  * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           2.0.1
+ * Version:           2.0.4
  * Author:            gIA70 - Gianfranco Greco
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -140,7 +140,6 @@ final class WC_Custom_Bundle_Framework {
             return;
         }
         
-        // Trova la variante corrispondente agli attributi
         $data_store = WC_Data_Store::load('product');
         $variation_id = $data_store->find_matching_product_variation($product, $attributes);
         
@@ -152,7 +151,6 @@ final class WC_Custom_Bundle_Framework {
             wp_send_json_error(['message' => 'Variante non trovata']);
         }
     }
-
     
     public function add_bundle_product_type($types) {
         $types['custom_bundle'] = __('WooC Bundle gIA70', 'wcb-framework');
@@ -430,13 +428,31 @@ final class WC_Custom_Bundle_Framework {
         global $post; ?>
         <div id="custom_bundle_options" class="panel woocommerce_options_panel">
             <div class="options_group">
-                <p class="form-field">
-                    <label for="bundle_instructions"><?php esc_html_e('Istruzioni per il Cliente', 'wcb-framework'); ?></label>
-                    <textarea class="short" style="height: 80px;" name="_bundle_instructions" id="bundle_instructions"><?php echo esc_textarea(get_post_meta($post->ID, '_bundle_instructions', true)); ?></textarea>
-                </p>
+                <div class="form-field">
+                    <div style="font-size:2em;font-weight:600;padding:10px;"><?php esc_html_e('Istruzioni per il Cliente', 'wcb-framework'); ?></div>
+                    <?php
+                    $content = get_post_meta($post->ID, '_bundle_instructions', true);
+                    $editor_id = '_bundle_instructions';
+                    $settings = array(
+                        'textarea_name' => '_bundle_instructions',
+                        'media_buttons' => true,
+                        'textarea_rows' => 10,
+                        'tinymce'       => array(
+                            'toolbar1' => 'bold,italic,underline,bullist,numlist,link,unlink,undo,redo,wp_adv',
+                            'toolbar2' => 'formatselect,alignleft,aligncenter,alignright,strikethrough,hr,forecolor,pastetext,removeformat,charmap,outdent,indent,fullscreen',
+                        ),
+                    );
+                    wp_editor(wp_kses_post($content), $editor_id, $settings);
+                    ?>
+                </div>
+            </div>   
+            <div class="toolbar">
+                <button type="button" class="button button-primary" id="add_bundle_group"><?php esc_html_e('Aggiungi Gruppo', 'wcb-framework'); ?></button>
+                <button type="button" class="button" id="expand_all_groups"><?php esc_html_e('Espandi Tutto', 'wcb-framework'); ?></button>
+                <button type="button" class="button" id="collapse_all_groups"><?php esc_html_e('Chiudi Tutto', 'wcb-framework'); ?></button>
             </div>
+            <div style="font-size:2em;font-weight:600;padding:10px;"><?php esc_html_e('Gruppi del Bundle', 'wcb-framework'); ?> <span class="description">(<?php esc_html_e('Trascina per riordinare', 'wcb-framework'); ?>)</span></div>
             <div class="options_group" id="bundle_groups_container">
-                <h2><?php esc_html_e('Gruppi del Bundle', 'wcb-framework'); ?> <span class="description">(<?php esc_html_e('Trascina per riordinare', 'wcb-framework'); ?>)</span></h2>
             </div>
             <div class="toolbar">
                 <button type="button" class="button button-primary" id="add_bundle_group"><?php esc_html_e('Aggiungi Gruppo', 'wcb-framework'); ?></button>
@@ -453,8 +469,8 @@ final class WC_Custom_Bundle_Framework {
     public function enqueue_admin_scripts($hook) {
         global $post;
         if ('post-new.php' == $hook || ('post.php' == $hook && isset($post->post_type) && 'product' == $post->post_type)) {
-            wp_enqueue_style('wcb-admin-style', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '2.0.1');
-            wp_enqueue_script('wcb-admin-script', plugin_dir_url(__FILE__) . 'assets/admin.js', ['jquery', 'wc-enhanced-select', 'jquery-ui-sortable'], '2.0.1', true);
+            wp_enqueue_style('wcb-admin-style', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '2.0.2');
+            wp_enqueue_script('wcb-admin-script', plugin_dir_url(__FILE__) . 'assets/admin.js', ['jquery', 'wc-enhanced-select', 'jquery-ui-sortable'], '2.0.2', true);
             
             $bundle_groups_data = get_post_meta($post->ID, '_bundle_groups', true);
             if (!is_array($bundle_groups_data)) $bundle_groups_data = [];
@@ -485,16 +501,19 @@ final class WC_Custom_Bundle_Framework {
 
     public function enqueue_frontend_scripts() {
         if (is_product() && get_the_id() && wc_get_product(get_the_id())->get_type() === 'custom_bundle') {
-            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '1.0.2');
-            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '1.0.2', true);
+            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.0.3');
+            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.0.3', true);
     
             $product_id = get_the_id();
             $pricing_data = [
-                'type' => get_post_meta($product_id, '_bundle_pricing_type', true),
-                'fixed_price' => wc_get_price_to_display(wc_get_product($product_id)),
-                'discount_amount' => floatval(get_post_meta($product_id, '_bundle_discount_amount', true)),
-                'discount_percentage' => floatval(get_post_meta($product_id, '_bundle_discount_percentage', true)),
-                'currency_symbol' => get_woocommerce_currency_symbol()
+                'type'                  => get_post_meta($product_id, '_bundle_pricing_type', true),
+                'fixed_price'           => wc_get_price_to_display(wc_get_product($product_id)),
+                'discount_amount'       => floatval(get_post_meta($product_id, '_bundle_discount_amount', true)),
+                'discount_percentage'   => floatval(get_post_meta($product_id, '_bundle_discount_percentage', true)),
+                'currency_symbol'       => get_woocommerce_currency_symbol(),
+                'decimal_separator'     => wc_get_price_decimal_separator(),
+                'thousand_separator'    => wc_get_price_thousand_separator(),
+                'currency_position'     => get_option( 'woocommerce_currency_pos' )
             ];
     
             wp_localize_script('wcb-frontend-script', 'wcb_params', [
@@ -507,7 +526,7 @@ final class WC_Custom_Bundle_Framework {
 
     public function save_bundle_meta($post_id) {
         if (isset($_POST['_bundle_instructions'])) {
-            update_post_meta($post_id, '_bundle_instructions', sanitize_textarea_field($_POST['_bundle_instructions']));
+            update_post_meta($post_id, '_bundle_instructions', wp_kses_post($_POST['_bundle_instructions']));
         }
         if (isset($_POST['_bundle_groups']) && is_array($_POST['_bundle_groups'])) {
             $groups_data = [];

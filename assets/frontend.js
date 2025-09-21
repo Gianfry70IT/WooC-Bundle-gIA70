@@ -35,30 +35,16 @@ jQuery(document).ready(function($) {
 
           let errorsHtml = '';
           response.data.messages.forEach(function(msg) {
-            if (msg.startsWith('DEBUG_DATA:')) {
-              try {
-                const debugData = JSON.parse(msg.substring(11));
-                errorsHtml += '<li><strong style="color: #c00;">[DEBUG]</strong> Problema con: <strong>' + debugData.product_name + '</strong>';
-                errorsHtml += '<ul>';
-                errorsHtml += '<li>Quantità richiesta: <strong>' + debugData.expected_qty + '</strong></li>';
-                errorsHtml += '<li>Set di varianti trovati: <strong>' + debugData.found_sets_count + '</strong></li>';
-                errorsHtml += '</ul></li>';
-                console.log('Dati ricevuti dal server per "' + debugData.product_name + '":', debugData.found_sets_data);
-              } catch (e) {
-                errorsHtml += '<li>' + msg + '</li>';
-              }
-            } else {
-              errorsHtml += '<li>' + msg + '</li>';
-            }
+            errorsHtml += '<li>' + msg + '</li>';
           });
 
           $messagesContainer.html('<ul class="woocommerce-error" role="alert">' + errorsHtml + '</ul>').slideDown();
-          $addToCartButton.prop('disabled', false).text('Aggiungi al carrello');
+          $addToCartButton.prop('disabled', false).text($addToCartButton.data('original-text'));
         }
       },
       error: function() {
         $messagesContainer.html('<ul class="woocommerce-error" role="alert"><li>' + 'Si è verificato un errore critico. Riprova.' + '</li></ul>').slideDown();
-        $addToCartButton.prop('disabled', false).text('Aggiungi al carrello');
+        $addToCartButton.prop('disabled', false).text($addToCartButton.data('original-text'));
       }
     });
   });
@@ -67,10 +53,8 @@ jQuery(document).ready(function($) {
     if (!$productItem.data('personalization-required')) {
       return true; 
     }
-
     let isComplete = true;
-
-    $productItem.find('.wcb-personalization-field-container:visible .wcb-personalization-input').each(function() {
+    $productItem.find('.wcb-personalization-field-container:visible .wcb-personalization-input, .wcb-variation-set .wcb-personalization-input').each(function() {
       if ($(this).val().trim() === '') {
         isComplete = false;
         $(this).addClass('wcb-input-error');
@@ -78,18 +62,6 @@ jQuery(document).ready(function($) {
         $(this).removeClass('wcb-input-error');
       }
     });
-
-    $productItem.find('.wcb-variation-set').each(function() {
-      $(this).find('.wcb-personalization-input').each(function() {
-        if ($(this).val().trim() === '') {
-          isComplete = false;
-          $(this).addClass('wcb-input-error');
-        } else {
-          $(this).removeClass('wcb-input-error');
-        }
-      });
-    });
-
     return isComplete;
   }
 
@@ -97,231 +69,268 @@ jQuery(document).ready(function($) {
     if ($productItem.find('.wcb-variation-container').length === 0 && $productItem.find('.wcb-variation-fields-template').length === 0) {
       return true;
     }
-
     let isComplete = true;
-    $productItem.find('.wcb-variation-container:visible select.wcb-variation-select').each(function() {
+    $productItem.find('.wcb-variation-container:visible select.wcb-variation-select, .wcb-variation-sets-container .wcb-variation-set select.wcb-variation-select').each(function() {
       if ($(this).val() === '') isComplete = false;
-    });
-    $productItem.find('.wcb-variation-sets-container .wcb-variation-set').each(function() {
-      $(this).find('select.wcb-variation-select').each(function() {
-        if ($(this).val() === '') isComplete = false;
-      });
     });
     return isComplete;
   }
 
   function validateGroup($group) {
     const mode = $group.data('selection-mode');
+    let isValid = false;
 
     switch (mode) {
       case 'single': {
         const $radio = $group.find('input[type="radio"]:checked');
-        if ($radio.length === 0) return false;
-        const $productItem = $radio.closest('.wcb-product-item');
-        return areVariationsComplete($productItem) && isPersonalizationComplete($productItem);
+        if ($radio.length > 0) {
+          const $productItem = $radio.closest('.wcb-product-item');
+          isValid = areVariationsComplete($productItem) && isPersonalizationComplete($productItem);
+        } else {
+            // Se il gruppo non è obbligatorio, è valido anche se vuoto
+            if (!$group.data('is-required')) isValid = true;
+        }
+        break;
       }
       case 'multiple': {
         const min = $group.data('min-qty');
         const max = $group.data('max-qty');
         const $checkboxes = $group.find('input[type="checkbox"]:checked');
-        if ($checkboxes.length < min || (max > 0 && $checkboxes.length > max)) return false;
-        if ($checkboxes.length === 0 && min > 0) return false;
-
-        let allOk = true;
-        $checkboxes.each(function() {
-          const $productItem = $(this).closest('.wcb-product-item');
-          if (!areVariationsComplete($productItem) || !isPersonalizationComplete($productItem)) {
-            allOk = false;
-            return false;
-          }
-        });
-        return allOk;
-      }
-      case 'multiple_quantity': {
-        const min = $group.data('min-qty');
-        const max = $group.data('max-qty');
-        let currentTotal = 0;
-        let allOk = true;
-
-        $group.find('.wcb-quantity-input').each(function() {
-          const qty = parseInt($(this).val()) || 0;
-          currentTotal += qty;
-          if (qty > 0) {
+        if ($checkboxes.length >= min && (max === 0 || $checkboxes.length <= max)) {
+          let allItemsValid = true;
+          $checkboxes.each(function() {
             const $productItem = $(this).closest('.wcb-product-item');
             if (!areVariationsComplete($productItem) || !isPersonalizationComplete($productItem)) {
-              allOk = false;
-            }
-          }
-        });
-
-        if (currentTotal < min || (max > 0 && currentTotal > max)) {
-          return false;
-        }
-
-        return allOk;
-      }
-      case 'quantity': {
-        const totalQty = $group.data('total-qty');
-        let currentTotal = 0;
-        let allOk = true;
-
-        $group.find('.wcb-quantity-input').each(function() {
-          const qty = parseInt($(this).val()) || 0;
-          currentTotal += qty;
-          if (qty > 0) {
-            const $productItem = $(this).closest('.wcb-product-item');
-            if (!areVariationsComplete($productItem) || !isPersonalizationComplete($productItem)) {
-              allOk = false;
-            }
-          }
-        });
-
-        if (currentTotal !== totalQty) return false;
-        return allOk;
-      }
-    }
-    return false;
-  }
-
-
-
-  function updateBundlePrice() {
-    if (typeof wcb_params.pricing === 'undefined') return;
-
-    const pricing = wcb_params.pricing;
-    let totalPrice = 0;
-    let pendingRequests = 0;
-
-    // Raccogli tutti i prodotti selezionati
-    $('.wcb-product-item').each(function() {
-      const $item = $(this);
-      const $input = $item.find('input[type="radio"], input[type="checkbox"]');
-      const $quantity = $item.find('.wcb-quantity-input');
-      const $priceElement = $item.find('.wcb-product-price');
-      const productId = $item.data('product-id');
-
-      let isSelected = false;
-      let quantity = 0;
-
-      if ($input.length > 0) {
-        isSelected = $input.is(':checked');
-        quantity = isSelected ? 1 : 0;
-      }
-
-      if ($quantity.length > 0) {
-        quantity = parseInt($quantity.val()) || 0;
-        isSelected = quantity > 0;
-      }
-
-      if (isSelected) {
-        // Per prodotti variabili, ottieni il prezzo della variante selezionata
-        const $variationContainer = $item.find('.wcb-variation-container:visible');
-        if ($variationContainer.length > 0) {
-          // Ottieni gli attributi selezionati
-          const selectedAttributes = {};
-          let allAttributesSelected = true;
-
-          $variationContainer.find('.wcb-variation-select').each(function() {
-            const attributeName = $(this).data('attribute-name');
-            const selectedValue = $(this).val();
-            if (selectedValue) {
-              selectedAttributes[attributeName] = selectedValue;
-            } else {
-              allAttributesSelected = false;
+              allItemsValid = false;
+              return false;
             }
           });
-
-          if (allAttributesSelected) {
-            pendingRequests++;
-            // Usa AJAX per ottenere il prezzo della variante
-            getVariationPrice(productId, selectedAttributes, function(variationPrice) {
-              totalPrice += variationPrice * quantity;
-              pendingRequests--;
-
-              if (pendingRequests === 0) {
-                finalizePriceCalculation(totalPrice, pricing);
-              }
-            });
-          } else {
-            // Se non tutti gli attributi sono selezionati, usa il prezzo base
-            const basePrice = parsePriceFromElement($priceElement);
-            totalPrice += basePrice * quantity;
+          isValid = allItemsValid;
+        }
+        if ($checkboxes.length === 0 && !$group.data('is-required')) isValid = true;
+        break;
+      }
+      case 'quantity':
+      case 'multiple_quantity': {
+        const min = (mode === 'quantity') ? $group.data('total-qty') : $group.data('min-qty');
+        const max = (mode === 'quantity') ? $group.data('total-qty') : $group.data('max-qty');
+        let currentTotal = 0;
+        let allItemsValid = true;
+        $group.find('.wcb-quantity-input').each(function() {
+          const qty = parseInt($(this).val()) || 0;
+          currentTotal += qty;
+          if (qty > 0) {
+            const $productItem = $(this).closest('.wcb-product-item');
+            if (!areVariationsComplete($productItem) || !isPersonalizationComplete($productItem)) {
+              allItemsValid = false;
+            }
           }
-        } else {
-          // Prodotto semplice - usa il prezzo base
-          const basePrice = parsePriceFromElement($priceElement);
-          totalPrice += basePrice * quantity;
+        });
+
+        if (currentTotal === 0 && !$group.data('is-required')) {
+            isValid = true;
+        } else if (allItemsValid && currentTotal >= min && (max === 0 || currentTotal <= max)) {
+            isValid = true;
+            if (mode === 'quantity') isValid = (currentTotal === max);
         }
+        break;
       }
-    });
-
-    // Se non ci sono richieste AJAX pendenti, finalizza il calcolo
-    if (pendingRequests === 0) {
-      finalizePriceCalculation(totalPrice, pricing);
     }
+    return isValid;
   }
+  
+    // =========================================================================
+    // LOGICA DI CALCOLO PREZZO DINAMICO (RIPRISTINATA)
+    // =========================================================================
 
-  function finalizePriceCalculation(totalPrice, pricing) {
-    // Applica sconti se in modalità calcolata
-    if (pricing.type === 'calculated') {
-      if (pricing.discount_percentage > 0) {
-        totalPrice = totalPrice * (1 - (pricing.discount_percentage / 100));
-      }
-      if (pricing.discount_amount > 0) {
-        totalPrice = Math.max(0, totalPrice - pricing.discount_amount);
-      }
-    } else if (pricing.type === 'fixed') {
-      totalPrice = pricing.fixed_price;
+    function getVariationPrice(productId, attributes, callback) {
+        $.ajax({
+            url: wcb_params.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'wcb_get_variation_price',
+                product_id: productId,
+                attributes: attributes,
+                security: wcb_params.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    callback(response.data.price);
+                } else {
+                    console.error('Errore nel recupero prezzo variante:', response.data);
+                    callback(0);
+                }
+            },
+            error: function() {
+                console.error('Errore AJAX nel recupero prezzo variante');
+                callback(0);
+            }
+        });
     }
 
-    // Aggiorna l'UI con il prezzo calcolato
-    $('.wcb-bundle-price').remove();
-    if (totalPrice > 0) {
-      $('.wcb-bundle-form').before(`
-<div class="wcb-bundle-price" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px; text-align: center;">
-<h3 style="margin: 0; color: #2c3e50;">Prezzo Totale: <span style="color: #27ae60;">${pricing.currency_symbol}${totalPrice.toFixed(2)}</span></h3>
-</div>
-`);
-    }
-  }  
+    function parsePriceFromElement($element) {
+        if (!$element || $element.length === 0) return 0;
+        const priceHTML = $element.html();
+        let priceText = '';
 
-
-
-  // Funzione helper per estrarre il prezzo da un elemento
-  function parsePriceFromElement($element) {
-    if ($element.length === 0) return 0;
-
-    const priceText = $element.text().replace(/[^\d,.]/g, '').replace(',', '.');
-    return parseFloat(priceText) || 0;
-  }
-
-  // Aggiungi questa funzione per ottenere il prezzo della variante via AJAX
-  function getVariationPrice(productId, attributes, callback) {
-    $.ajax({
-      url: wcb_params.ajax_url,
-      type: 'POST',
-      data: {
-        action: 'wcb_get_variation_price',
-        product_id: productId,
-        attributes: attributes,
-        security: wcb_params.nonce
-      },
-      success: function(response) {
-        if (response.success) {
-          callback(response.data.price);
+        // Gestisce sia prezzi semplici che in saldo
+        const ins = $element.find('ins');
+        if (ins.length > 0) {
+            priceText = ins.text();
         } else {
-          console.error('Errore nel recupero prezzo variante:', response.data);
-          callback(0);
+            priceText = $element.text();
         }
-      },
-      error: function() {
-        console.error('Errore AJAX nel recupero prezzo variante');
-        callback(0);
-      }
-    });
-  }
+        
+        const cleanPrice = priceText.replace(wcb_params.pricing.currency_symbol, '').replace(wcb_params.pricing.thousand_separator, '').replace(wcb_params.pricing.decimal_separator, '.').trim();
+        return parseFloat(cleanPrice) || 0;
+    }
 
 
+    function finalizePriceCalculation(totalPrice) {
+        const pricing = wcb_params.pricing;
+        let finalPrice = totalPrice;
+
+        if (pricing.type === 'calculated') {
+            if (pricing.discount_percentage > 0) {
+                finalPrice *= (1 - (pricing.discount_percentage / 100));
+            }
+            if (pricing.discount_amount > 0) {
+                finalPrice = Math.max(0, finalPrice - pricing.discount_amount);
+            }
+        } else if (pricing.type === 'fixed') {
+            finalPrice = parseFloat(pricing.fixed_price);
+        }
+        
+        let formattedPrice = finalPrice.toFixed(2)
+            .replace('.', wcb_params.pricing.decimal_separator);
+
+        // Aggiungi il simbolo della valuta in base alla posizione
+        if (wcb_params.pricing.currency_position.includes('left')) {
+            formattedPrice = wcb_params.pricing.currency_symbol + formattedPrice;
+        } else {
+            formattedPrice = formattedPrice + wcb_params.pricing.currency_symbol;
+        }
+
+        const $priceContainer = $('.wcb-bundle-price');
+        if ($priceContainer.length > 0) {
+            $priceContainer.find('.wcb-price-value').html(formattedPrice);
+        } else {
+            $('.wcb-bundle-form').before(
+                `<div class="wcb-bundle-price">
+                    <h3>Prezzo Totale: <span class="wcb-price-value">${formattedPrice}</span></h3>
+                 </div>`
+            );
+        }
+    }
+
+    function updateBundlePrice() {
+        if (typeof wcb_params.pricing === 'undefined') return;
+
+        let totalPrice = 0;
+        let pendingRequests = 0;
+        const itemsToPrice = [];
+
+        $('.wcb-product-item').each(function() {
+            const $item = $(this);
+            const $radio = $item.find('input[type="radio"]');
+            const $checkbox = $item.find('input[type="checkbox"]');
+            const $quantityInput = $item.find('.wcb-quantity-input');
+            let isSelected = false;
+            let quantity = 0;
+
+            if ($radio.length > 0 && $radio.is(':checked')) {
+                isSelected = true;
+                quantity = 1;
+            } else if ($checkbox.length > 0 && $checkbox.is(':checked')) {
+                isSelected = true;
+                quantity = 1;
+            } else if ($quantityInput.length > 0) {
+                quantity = parseInt($quantityInput.val(), 10) || 0;
+                if (quantity > 0) isSelected = true;
+            }
+
+            if (isSelected) {
+                itemsToPrice.push({ item: $item, quantity: quantity });
+            }
+        });
+        
+        if (itemsToPrice.length === 0) {
+             finalizePriceCalculation(0);
+             return;
+        }
+        
+        itemsToPrice.forEach(function(bundleItem) {
+            const { item, quantity } = bundleItem;
+            const $item = item;
+            const productId = $item.data('product-id');
+            const $priceElement = $item.find('.wcb-product-price');
+            const basePrice = parsePriceFromElement($priceElement);
+
+            const isVariable = $item.find('.wcb-variation-container').length > 0 || $item.find('.wcb-variation-fields-template').length > 0;
+
+            if (!isVariable) {
+                totalPrice += basePrice * quantity;
+            } else {
+                // Gestione prodotto variabile
+                const $variationContainers = $item.find('.wcb-variation-container:visible, .wcb-variation-set');
+                
+                if ($variationContainers.length === 0) { // Modalità a quantità, ma ancora a 0
+                    // Non fare nulla, il prezzo non viene aggiunto
+                } else if ($variationContainers.length === 1 && !$item.find('.wcb-variation-set').length) { // Scelta singola/multipla
+                    const selectedAttributes = {};
+                    let allAttributesSelected = true;
+                    $variationContainers.find('.wcb-variation-select').each(function() {
+                        const attrName = $(this).data('attribute-name');
+                        const attrValue = $(this).val();
+                        if (attrValue) {
+                            selectedAttributes[attrName] = attrValue;
+                        } else {
+                            allAttributesSelected = false;
+                        }
+                    });
+
+                    if (allAttributesSelected) {
+                        pendingRequests++;
+                        getVariationPrice(productId, selectedAttributes, function(variationPrice) {
+                            totalPrice += variationPrice * quantity;
+                            pendingRequests--;
+                            if (pendingRequests === 0) finalizePriceCalculation(totalPrice);
+                        });
+                    } else {
+                        // Un attributo non è selezionato, non aggiungiamo prezzo
+                    }
+                } else { // Modalità a quantità con più set di varianti
+                    $variationContainers.each(function() {
+                        const $set = $(this);
+                        const selectedAttributes = {};
+                        let allAttributesSelectedInSet = true;
+                        $set.find('.wcb-variation-select').each(function() {
+                            const attrName = $(this).data('attribute-name');
+                            const attrValue = $(this).val();
+                            if (attrValue) {
+                                selectedAttributes[attrName] = attrValue;
+                            } else {
+                                allAttributesSelectedInSet = false;
+                            }
+                        });
+
+                        if (allAttributesSelectedInSet) {
+                            pendingRequests++;
+                            getVariationPrice(productId, selectedAttributes, function(variationPrice) {
+                                totalPrice += variationPrice; // La quantità qui è 1 per set
+                                pendingRequests--;
+                                if (pendingRequests === 0) finalizePriceCalculation(totalPrice);
+                            });
+                        }
+                    });
+                }
+            }
+        });
+
+        if (pendingRequests === 0) {
+            finalizePriceCalculation(totalPrice);
+        }
+    }
 
 
   function updateBundleState() {
@@ -329,14 +338,10 @@ jQuery(document).ready(function($) {
     $('.wcb-bundle-group').each(function() {
       const $group = $(this);
       const isRequired = $group.data('is-required');
-      const wasComplete = $group.hasClass('wcb-group-complete');
       const isGroupComplete = validateGroup($group);
 
       if (isGroupComplete) {
         $group.removeClass('wcb-group-incomplete').addClass('wcb-group-complete');
-        if (!wasComplete) {
-          animateGroupStatus($group, true);
-        }
       } else {
         $group.removeClass('wcb-group-complete');
         if (isRequired) {
@@ -346,26 +351,21 @@ jQuery(document).ready(function($) {
       }
     });
     $addToCartButton.prop('disabled', !isBundleComplete);
-
-    // Aggiungi una classe al pulsante quando è abilitato
-    if (!isBundleComplete) {
-      $addToCartButton.removeClass('wcb-button-ready');
-    } else {
-      $addToCartButton.addClass('wcb-button-ready');
-    }
+    // Richiama il calcolo del prezzo ogni volta che lo stato cambia
     updateBundlePrice();
   }
-
 
   $bundleForm.on('change', '.wcb-variation-select', function() {
     const $changedSelect = $(this);
     const $productItem = $changedSelect.closest('.wcb-product-item');
     const variationData = $productItem.data('variation-data');
-    if (!variationData) { updateBundleState(); return; }
+    if (!variationData || !Array.isArray(variationData)) { 
+      updateBundleState(); 
+      return; 
+    }
 
     const $selectContainer = $changedSelect.closest('.wcb-variation-container, .wcb-variation-set');
     const $allSelects = $selectContainer.find('.wcb-variation-select');
-
     let currentSelection = {};
     $allSelects.each(function() {
       const attributeName = $(this).data('attribute-name');
@@ -375,29 +375,32 @@ jQuery(document).ready(function($) {
       }
     });
 
-    $allSelects.each(function() {
+    $allSelects.not($changedSelect).each(function() {
       const $currentSelect = $(this);
       const attributeName = $currentSelect.data('attribute-name');
-      if ($currentSelect.is($changedSelect)) return;
+      const originalValue = $currentSelect.val();
       $currentSelect.find('option:gt(0)').prop('disabled', true);
+      
       const possibleOptions = new Set();
       variationData.forEach(function(variation) {
         let isMatch = true;
         for (const attr in currentSelection) {
-          if (attr !== attributeName && variation[attr] && variation[attr] !== currentSelection[attr]) {
-            isMatch = false;
-            break;
-          }
+            if (attr !== attributeName && variation[attr] && variation[attr] !== currentSelection[attr]) {
+                isMatch = false;
+                break;
+            }
         }
         if (isMatch && variation[attributeName]) {
-          possibleOptions.add(variation[attributeName]);
+            possibleOptions.add(variation[attributeName]);
         }
       });
+      
       $currentSelect.find('option').each(function(){
         if(possibleOptions.has($(this).val())){
           $(this).prop('disabled', false);
         }
       });
+
       if ($currentSelect.find('option:selected').is(':disabled')) {
         $currentSelect.val('');
       }
@@ -419,8 +422,7 @@ jQuery(document).ready(function($) {
     }
 
     if (isChecked) {
-      $variationContainer.slideDown().find('select').prop('disabled', false);
-      $variationContainer.find('.wcb-variation-select').first().trigger('change');
+      $variationContainer.slideDown().find('select').prop('disabled', false).first().trigger('change');
       $personalizationContainer.slideDown();
     } else {
       $variationContainer.slideUp().find('select').prop('disabled', true);
@@ -438,32 +440,28 @@ jQuery(document).ready(function($) {
     const $personalizationTemplate = $productItem.find('.wcb-personalization-field-template');
 
     $setsContainer.empty();
-
     if (qty > 0) {
-      $setsContainer.show();
       for (let i = 0; i < qty; i++) {
         const $newSet = $('<div class="wcb-variation-set"><h5>' + 'Pezzo ' + (i + 1) + '</h5></div>');
-
         if ($variationTemplate.length > 0) {
           const variationTemplateHtml = $variationTemplate.html().replace(/__INDEX__/g, i);
           const $newVariationContent = $(variationTemplateHtml);
           $newVariationContent.find('select').prop('disabled', false);
           $newSet.append($newVariationContent);
         }
-
         if ($personalizationTemplate.length > 0) {
           const personalizationTemplateHtml = $personalizationTemplate.html().replace(/__INDEX__/g, i);
           $newSet.append(personalizationTemplateHtml);
         }
-
         $setsContainer.append($newSet);
       }
+      $setsContainer.slideDown();
     } else {
-      $setsContainer.hide();
+      $setsContainer.slideUp();
     }
     updateBundleState();
   });
-
+  
   $bundleForm.on('input', '.wcb-personalization-input.wcb-input-error', function() {
     if ($(this).val().trim() !== '') {
       $(this).removeClass('wcb-input-error');
@@ -471,92 +469,40 @@ jQuery(document).ready(function($) {
     }
   });
 
-  $bundleForm.on('change input', 'input[type="radio"], input[type="checkbox"], .wcb-quantity-input', function() {
-    setTimeout(updateBundlePrice, 100);
-  });
+  // Salva il testo originale del pulsante
+  $addToCartButton.data('original-text', $addToCartButton.text());
 
-    function animateGroupStatus($group, isComplete) {
-        $group.css('transition', 'all 0.5s ease');
-        if (isComplete) {
-            $group.addClass('wcb-group-complete-animate');
-            setTimeout(() => {
-                $group.removeClass('wcb-group-complete-animate');
-            }, 500);
-        }
-    }
-    
-    updateBundleState();
-    
-    // Inizializza il lightbox
-    initLightbox();
+  // Trigger iniziale per impostare lo stato
+  updateBundleState();
+  initLightbox();
 });
-
-
-// ========== FUNZIONI LIGHTBOX ========== 
-
-function openLightbox(imageUrl, caption) {
-    const $lightbox = jQuery('#wcb-lightbox');
-    const $lightboxImage = $lightbox.find('.wcb-lightbox-image');
-    const $lightboxCaption = $lightbox.find('.wcb-lightbox-caption');
-    
-    $lightboxImage.attr('src', imageUrl);
-    $lightboxCaption.text(caption);
-
-    // MODIFICA: Cambia direttamente lo stile display invece di usare classi
-    $lightbox.css('display', 'flex').hide().fadeIn(300);
-    $lightbox.css('opacity', '1');
-    $lightbox.addClass("show");
-    jQuery('body').css('overflow', 'hidden');
-}
-
-function closeLightbox() {
-    const $lightbox = jQuery('#wcb-lightbox');
-    
-    // MODIFICA: Nascondi con animazione e poi reimposta display: none
-    $lightbox.fadeOut(300, function() {
-        jQuery(this).css('display', 'none');
-        $lightbox.removeClass("show");
-    });
-    jQuery('body').css('overflow', '');
-    
-    setTimeout(() => {
-        $lightbox.find('.wcb-lightbox-image').attr('src', '');
-        $lightbox.find('.wcb-lightbox-caption').text('');
-    }, 300);
-}
 
 function initLightbox() {
     const $bundleForm = jQuery('.wcb-bundle-form');
     if ($bundleForm.length === 0) return;
     
-    // Apri lightbox al click sull'immagine
     $bundleForm.on('click', '.wcb-thumbnail-image', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
+        e.preventDefault(); e.stopPropagation();
         const $image = jQuery(this);
-        const imageUrl = $image.data('full-image');
-        const productName = $image.closest('.wcb-product-item').find('.wcb-product-name').text();
-        
-        openLightbox(imageUrl, productName);
+        openLightbox($image.data('full-image'), $image.closest('.wcb-product-item').find('.wcb-product-name').text());
     });
     
-    // Chiudi lightbox
     jQuery(document).on('click', '.wcb-lightbox-close, .wcb-lightbox', function(e) {
-        if (e.target === this || jQuery(e.target).hasClass('wcb-lightbox-close')) {
-            closeLightbox();
-        }
-    });
-    
-    // Previeni la chiusura quando si clicca sull'immagine
-    jQuery(document).on('click', '.wcb-lightbox-image', function(e) {
-        e.stopPropagation();
-    });
-    
-    // Chiudi con ESC
-    jQuery(document).on('keyup', function(e) {
-        if (e.key === 'Escape') {
-            closeLightbox();
-        }
-    });
+        if (e.target === this || jQuery(e.target).hasClass('wcb-lightbox-close')) closeLightbox();
+    }).on('click', '.wcb-lightbox-image', e => e.stopPropagation())
+      .on('keyup', e => { if (e.key === 'Escape') closeLightbox(); });
 }
+
+function openLightbox(imageUrl, caption) {
+    const $lightbox = jQuery('#wcb-lightbox');
+    $lightbox.find('.wcb-lightbox-image').attr('src', imageUrl);
+    $lightbox.find('.wcb-lightbox-caption').text(caption);
+    $lightbox.css('display', 'flex').hide().fadeIn(300);
+    jQuery('body').addClass('wcb-lightbox-open');
+}
+
+function closeLightbox() {
+    jQuery('#wcb-lightbox').fadeOut(300);
+    jQuery('body').removeClass('wcb-lightbox-open');
+}
+

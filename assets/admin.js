@@ -229,5 +229,47 @@ jQuery(document).ready(function($) {
     });
 
     $groupsContainer.sortable({ handle: '.sort-handle', update: () => { reindexGroups(); updateProductExclusions(); } });
+    
+// Aggiungi questa funzione
+function showSelect2Loader($select) {
+  $select.data('select2').$dropdown.find('.select2-results')
+    .html('<div class="wcb-select2-loading">Caricamento...</div>');
+}
+
+// Modifica la funzione initEnhancedSelect per includere il loader
+function initEnhancedSelect($target) {
+  $target.each(function() {
+    if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
+    
+    $(this).select2({
+      // ... altre opzioni ...
+      language: {
+        searching: function() {
+          return "Ricerca in corso...";
+        }
+      }
+    }).on('select2:open', function() {
+      // Aggiungi una classe personalizzata al container
+      $('.select2-container--open').addClass('wcb-select2-open');
+    }).addClass('enhanced');
+  });
+}
+
+// Aggiungi stili per il loader
+$('head').append(`
+  <style>
+    .wcb-select2-loading {
+      padding: 10px;
+      text-align: center;
+      color: var(--wcb-secondary);
+    }
+    
+    .wcb-select2-open .select2-dropdown {
+      border-color: var(--wcb-primary);
+      box-shadow: 0 0 0 3px rgba(56, 88, 233, 0.1);
+    }
+  </style>
+`);
+
 });
 
