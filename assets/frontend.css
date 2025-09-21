@@ -116,3 +116,309 @@ select option:disabled { color: #aaaaaa; background-color: #f5f5f5; }
     font-weight: bold;
     padding-left: 2px;
 }
+
+
+/* Aggiungi queste regole CSS alla fine del file frontend.css */
+
+/* Miglioramenti estetici generali */
+.wcb-bundle-container {
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.wcb-bundle-instructions {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-left: 4px solid #0073aa;
+    border-radius: 6px;
+}
+
+.wcb-group-title {
+    color: #2c3e50;
+    position: relative;
+    padding-left: 15px;
+}
+
+.wcb-group-title:before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 20px;
+    width: 4px;
+    background: #0073aa;
+    border-radius: 2px;
+}
+
+/* Miglioramenti per i prodotti */
+.wcb-product-item {
+    transition: all 0.3s ease;
+    border-radius: 6px;
+    position: relative;
+}
+
+.wcb-product-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-color: #0073aa;
+}
+
+.wcb-product-item label {
+    align-items: flex-start !important;
+}
+
+.wcb-product-name {
+    font-weight: 600;
+    color: #34495e;
+}
+
+.wcb-product-price {
+    color: #27ae60 !important;
+    font-weight: 700;
+}
+
+/* Miglioramenti per i campi di personalizzazione */
+.wcb-personalization-field-container {
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px dashed #adb5bd;
+}
+
+.wcb-variation-container, .wcb-variation-sets-container {
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px dashed #adb5bd;
+}
+
+.wcb-variation-set {
+    background: #fff;
+    border-radius: 6px;
+    padding: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Pulsante migliorato */
+.single_add_to_cart_button.button.alt {
+    background: linear-gradient(135deg, #0073aa 0%, #005a87 100%);
+    border-radius: 8px;
+    font-size: 16px;
+    padding: 15px 30px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 115, 170, 0.2);
+}
+
+.single_add_to_cart_button.button.alt:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 115, 170, 0.3);
+}
+
+/* Indicatori di stato migliorati */
+.wcb-group-complete {
+    border-left-color: #27ae60 !important;
+    background-color: rgba(39, 174, 96, 0.03);
+}
+
+.wcb-group-incomplete {
+    border-left-color: #e74c3c !important;
+    background-color: rgba(231, 76, 60, 0.03);
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .wcb-product-item > label {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+    
+    .wcb-product-price, .wcb-quantity-input {
+        margin-left: 0;
+        margin-top: 10px;
+    }
+    
+    .wcb-variation-field, .wcb-personalization-field {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .wcb-variation-field > label, .wcb-personalization-field > label {
+        margin-bottom: 5px;
+        margin-right: 0;
+    }
+}
+
+/* Aggiungi queste regole CSS */
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+.wcb-group-complete-animate {
+    animation: pulse 0.5s ease;
+}
+
+.wcb-button-ready {
+    position: relative;
+    overflow: hidden;
+}
+
+.wcb-button-ready:after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    animation: shine 1.5s infinite;
+}
+
+@keyframes shine {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* Transizioni per la visualizzazione dei campi */
+.wcb-variation-container,
+.wcb-variation-sets-container,
+.wcb-personalization-field-container {
+    transition: all 0.3s ease;
+}
+
+
+/* Stili per le thumbnail dei prodotti */
+.wcb-product-item > label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: normal;
+    margin-bottom: 0;
+    position: relative;
+}
+
+.wcb-product-thumbnail {
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.wcb-product-thumbnail img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 2px solid #e0e0e0;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.wcb-product-thumbnail img:hover {
+    border-color: #0073aa;
+    transform: scale(1.05);
+}
+
+.wcb-product-info {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.wcb-product-name {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.wcb-product-price {
+    font-weight: bold;
+    color: #0073aa;
+}
+
+/* Lightbox Styles */
+.wcb-lightbox {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 9999;
+    display: none; /* Nascosto di default */
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.wcb-lightbox.show {
+    display: flex;
+    opacity: 1;
+}
+
+.wcb-lightbox-content {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.wcb-lightbox.show .wcb-lightbox-content {
+    transform: scale(1);
+}
+
+.wcb-lightbox-image {
+    max-width: 100%;
+    max-height: 80vh;
+    border-radius: 8px;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+}
+
+.wcb-lightbox-close {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    color: #fff;
+    font-size: 35px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.wcb-lightbox-close:hover {
+    color: #0073aa;
+}
+
+.wcb-lightbox-caption {
+    color: #fff;
+    text-align: center;
+    margin-top: 15px;
+    font-size: 16px;
+}
+
+/* Prevent body scroll when lightbox is open */
+body.wcb-lightbox-open {
+    overflow: hidden;
+}
+
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .wcb-product-item > label {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .wcb-product-thumbnail {
+        margin-right: 0;
+        margin-bottom: 10px;
+        align-self: center;
+    }
+    
+    .wcb-product-price, .wcb-quantity-input {
+        margin-left: 0;
+        margin-top: 10px;
+    }
+}

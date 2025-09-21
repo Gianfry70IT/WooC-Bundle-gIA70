@@ -11,6 +11,15 @@ global $product;
 
 <div id="wcb-ajax-messages"></div>
 
+<!-- Lightbox Container -->
+<div id="wcb-lightbox" class="wcb-lightbox" style="display: none;">
+    <div class="wcb-lightbox-content">
+        <span class="wcb-lightbox-close">&times;</span>
+        <img class="wcb-lightbox-image" src="" alt="">
+        <div class="wcb-lightbox-caption"></div>
+    </div>
+</div>
+
 <div class="wcb-bundle-container">
     <?php if ( ! empty( $instructions ) ) : ?>
         <div class="wcb-bundle-instructions"><?php echo wp_kses_post( wpautop( $instructions ) ); ?></div>
@@ -59,20 +68,38 @@ global $product;
                                 if (!empty($variation['attributes'])) $variation_data[] = $variation['attributes'];
                             }
                         }
+                        
+                        // Ottieni l'immagine del prodotto
+                        $image_id = $child_product->get_image_id();
+                        $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
+                        $full_image_url = $image_id ? wp_get_attachment_image_url($image_id, 'full') : wc_placeholder_img_src('full');
                         ?>
                         <div class="wcb-product-item" 
-                             data-product-id="<?php echo esc_attr($product_id); ?>" 
-                             <?php if(!empty($variation_data)) echo "data-variation-data='" . esc_attr(json_encode($variation_data)) . "'"; ?>
-                             <?php if($personalization_enabled && $personalization_required) echo 'data-personalization-required="true"'; ?>>
-
+                            data-product-id="<?php echo esc_attr($product_id); ?>"
+                            data-base-price="<?php echo esc_attr($child_product->get_price()); ?>"
+                            <?php if(!empty($variation_data)) echo "data-variation-data='" . esc_attr(json_encode($variation_data)) . "'"; ?>
+                            <?php if($personalization_enabled && $personalization_required) echo 'data-personalization-required="true"'; ?>>
+    
                             <label>
                                 <?php if ( 'single' === $selection_mode ) : ?>
                                     <input type="radio" name="bundle_selection_radio[<?php echo esc_attr( $group_index ); ?>]" value="<?php echo esc_attr( $product_id ); ?>">
                                 <?php elseif ( 'multiple' === $selection_mode ) : ?>
                                     <input type="checkbox" name="bundle_selection[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>][selected]" value="1">
                                 <?php endif; ?>
-                                <span class="wcb-product-name"><?php echo esc_html( $child_product->get_name() ); ?></span>
-                                <span class="wcb-product-price"><?php echo $child_product->get_price_html(); ?></span>
+                                
+                                <!-- Aggiungi l'immagine thumbnail -->
+                                <div class="wcb-product-thumbnail">
+                                    <img src="<?php echo esc_url($image_url); ?>" 
+                                         alt="<?php echo esc_attr($child_product->get_name()); ?>"
+                                         data-full-image="<?php echo esc_url($full_image_url); ?>"
+                                         class="wcb-thumbnail-image">
+                                </div>
+                                
+                                <div class="wcb-product-info">
+                                    <span class="wcb-product-name"><?php echo esc_html( $child_product->get_name() ); ?></span>
+                                    <span class="wcb-product-price"><?php echo $child_product->get_price_html(); ?></span>
+                                </div>
+                                
                                 <?php if ( 'quantity' === $selection_mode || 'multiple_quantity' === $selection_mode ) : ?>
                                     <input class="wcb-quantity-input" type="number" name="wcb_quantity[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>]" value="0" min="0" step="1">
                                 <?php endif; ?>

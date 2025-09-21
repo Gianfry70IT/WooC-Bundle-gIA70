@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WooC Bundle gIA70
  * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           1.0.1
+ * Version:           2.0.1
  * Author:            gIA70 - Gianfranco Greco
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -119,7 +119,40 @@ final class WC_Custom_Bundle_Framework {
         add_action( 'woocommerce_before_calculate_totals', [ $this, 'calculate_bundle_price_in_cart' ], 99 );
         add_action( 'woocommerce_order_status_processing', [ $this, 'reduce_stock_for_bundle_items' ] );
         add_action( 'woocommerce_cart_item_removed', [ $this, 'handle_bundle_item_removed' ], 10, 2 );
+        add_action( 'wp_ajax_wcb_get_variation_price', [ $this, 'get_variation_price_handler' ] );
+        add_action( 'wp_ajax_nopriv_wcb_get_variation_price', [ $this, 'get_variation_price_handler' ] );
     }
+    
+    public function get_variation_price_handler() {
+        check_ajax_referer('wcb-add-to-cart-nonce', 'security');
+        
+        $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
+        $attributes = isset($_POST['attributes']) ? $_POST['attributes'] : [];
+        
+        if (!$product_id) {
+            wp_send_json_error(['message' => 'Product ID mancante']);
+            return;
+        }
+        
+        $product = wc_get_product($product_id);
+        if (!$product || !$product->is_type('variable')) {
+            wp_send_json_error(['message' => 'Prodotto non valido']);
+            return;
+        }
+        
+        // Trova la variante corrispondente agli attributi
+        $data_store = WC_Data_Store::load('product');
+        $variation_id = $data_store->find_matching_product_variation($product, $attributes);
+        
+        if ($variation_id) {
+            $variation = wc_get_product($variation_id);
+            $price = $variation->get_price();
+            wp_send_json_success(['price' => $price]);
+        } else {
+            wp_send_json_error(['message' => 'Variante non trovata']);
+        }
+    }
+
     
     public function add_bundle_product_type($types) {
         $types['custom_bundle'] = __('WooC Bundle gIA70', 'wcb-framework');
@@ -380,7 +413,15 @@ final class WC_Custom_Bundle_Framework {
             if (in_array($id, $exclude_ids)) continue;
             $product = wc_get_product($id);
             if (!$product || $product->is_type('variation') || $product->is_type('custom_bundle')) continue;
-            $products[$id] = $product->get_formatted_name();
+            
+            $image_id = $product->get_image_id();
+            $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
+
+            $products[] = [
+                'id' => $id,
+                'text' => wp_strip_all_tags($product->get_formatted_name()),
+                'image_url' => $image_url,
+            ];
         }
         wp_send_json($products);
     }
@@ -399,6 +440,8 @@ final class WC_Custom_Bundle_Framework {
             </div>
             <div class="toolbar">
                 <button type="button" class="button button-primary" id="add_bundle_group"><?php esc_html_e('Aggiungi Gruppo', 'wcb-framework'); ?></button>
+                <button type="button" class="button" id="expand_all_groups"><?php esc_html_e('Espandi Tutto', 'wcb-framework'); ?></button>
+                <button type="button" class="button" id="collapse_all_groups"><?php esc_html_e('Chiudi Tutto', 'wcb-framework'); ?></button>
             </div>
             <div class="wcb-signature">
                 <p><strong>WooC Bundle gIA70</strong> by <em>Gianfranco Greco</em></p>
@@ -410,8 +453,8 @@ final class WC_Custom_Bundle_Framework {
     public function enqueue_admin_scripts($hook) {
         global $post;
         if ('post-new.php' == $hook || ('post.php' == $hook && isset($post->post_type) && 'product' == $post->post_type)) {
-            wp_enqueue_style('wcb-admin-style', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '1.0.1');
-            wp_enqueue_script('wcb-admin-script', plugin_dir_url(__FILE__) . 'assets/admin.js', ['jquery', 'wc-enhanced-select', 'jquery-ui-sortable'], '1.0.1', true);
+            wp_enqueue_style('wcb-admin-style', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '2.0.1');
+            wp_enqueue_script('wcb-admin-script', plugin_dir_url(__FILE__) . 'assets/admin.js', ['jquery', 'wc-enhanced-select', 'jquery-ui-sortable'], '2.0.1', true);
             
             $bundle_groups_data = get_post_meta($post->ID, '_bundle_groups', true);
             if (!is_array($bundle_groups_data)) $bundle_groups_data = [];
@@ -423,7 +466,13 @@ final class WC_Custom_Bundle_Framework {
                     foreach ($group['products'] as $product_id) {
                         $product = wc_get_product($product_id);
                         if ($product) {
-                            $products_with_names[] = ['id' => $product_id, 'text' => wp_strip_all_tags($product->get_formatted_name())];
+                            $image_id = $product->get_image_id();
+                            $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
+                            $products_with_names[] = [
+                                'id' => $product_id, 
+                                'text' => wp_strip_all_tags($product->get_formatted_name()),
+                                'image_url' => $image_url
+                            ];
                         }
                     }
                 }
@@ -436,9 +485,9 @@ final class WC_Custom_Bundle_Framework {
 
     public function enqueue_frontend_scripts() {
         if (is_product() && get_the_id() && wc_get_product(get_the_id())->get_type() === 'custom_bundle') {
-            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '1.0.1');
-            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '1.0.1', true);
-
+            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '1.0.2');
+            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '1.0.2', true);
+    
             $product_id = get_the_id();
             $pricing_data = [
                 'type' => get_post_meta($product_id, '_bundle_pricing_type', true),
@@ -447,7 +496,7 @@ final class WC_Custom_Bundle_Framework {
                 'discount_percentage' => floatval(get_post_meta($product_id, '_bundle_discount_percentage', true)),
                 'currency_symbol' => get_woocommerce_currency_symbol()
             ];
-
+    
             wp_localize_script('wcb-frontend-script', 'wcb_params', [
                 'ajax_url' => admin_url('admin-ajax.php'), 
                 'nonce' => wp_create_nonce('wcb-add-to-cart-nonce'),
@@ -468,7 +517,7 @@ final class WC_Custom_Bundle_Framework {
                     'products'                 => isset($group['products']) ? array_map('intval', $group['products']) : [],
                     'selection_mode'           => sanitize_text_field($group['selection_mode'] ?? 'multiple'),
                     'min_qty'                  => absint($group['min_qty'] ?? 1),
-                    'max_qty'                  => absint($group['max_qty'] ?? 1),
+                    'max_qty'                  => absint($group['max_qty'] ?? 0),
                     'total_qty'                => absint($group['total_qty'] ?? 1),
                     'is_required'              => isset($group['is_required']) ? 'yes' : 'no',
                     'personalization_enabled'  => isset($group['personalization_enabled']) ? 'yes' : 'no',
@@ -792,3 +841,4 @@ final class WC_Custom_Bundle_Framework {
     }
 }
 WC_Custom_Bundle_Framework::get_instance();
+
