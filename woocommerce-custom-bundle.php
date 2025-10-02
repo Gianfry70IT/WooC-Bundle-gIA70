@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WooC Bundle gIA70
  * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           2.0.4
+ * Version:           2.1.0
  * Author:            gIA70 - Gianfranco Greco
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -16,8 +16,6 @@
 if ( ! defined( 'ABSPATH' ) ) {
     exit; 
 }
-
-// --- INIZIO BLOCCO CONTROLLO DIPENDENZE ---
 
 add_action( 'admin_init', 'wcb_dependency_check_on_plugins_page' );
 
@@ -67,9 +65,6 @@ function wcb_admin_notice_if_wc_deactivated() {
 }
 add_action( 'admin_notices', 'wcb_admin_notice_if_wc_deactivated' );
 
-// --- FINE BLOCCO CONTROLLO DIPENDENZE ---
-
-
 require_once plugin_dir_path( __FILE__ ) . 'updater.php';
 
 function wcb_initialize_updater() {
@@ -115,6 +110,7 @@ final class WC_Custom_Bundle_Framework {
         add_action( 'wp_ajax_nopriv_wcb_add_bundle_to_cart', [ $this, 'wcb_add_bundle_to_cart_handler' ] );
 
         add_filter( 'woocommerce_get_item_data', [ $this, 'display_bundle_selections_in_cart' ], 10, 2 );
+        add_filter( 'woocommerce_add_cart_item_data', [ $this, 'attach_personalization_to_separate_items' ], 10, 3 );
         add_action( 'woocommerce_checkout_create_order_line_item', [ $this, 'add_selections_to_order_items' ], 10, 4 );
         add_action( 'woocommerce_before_calculate_totals', [ $this, 'calculate_bundle_price_in_cart' ], 99 );
         add_action( 'woocommerce_order_status_processing', [ $this, 'reduce_stock_for_bundle_items' ] );
@@ -145,7 +141,7 @@ final class WC_Custom_Bundle_Framework {
         
         if ($variation_id) {
             $variation = wc_get_product($variation_id);
-            $price = $variation->get_price();
+            $price = wc_get_price_to_display($variation);
             wp_send_json_success(['price' => $price]);
         } else {
             wp_send_json_error(['message' => 'Variante non trovata']);
@@ -355,6 +351,44 @@ final class WC_Custom_Bundle_Framework {
         }
         
         wp_send_json_success(['cart_url' => wc_get_cart_url(), 'message' => __('Prodotti aggiunti al carrello.', 'wcb-framework')]);
+    }
+    
+public function attach_personalization_to_separate_items( $cart_item_data, $product_id, $variation_id ) {
+        if ( isset( $_POST['form_data'] ) ) {
+            parse_str( $_POST['form_data'], $form_data );
+            $bundle_product_id = isset( $form_data['add-to-cart'] ) ? intval( $form_data['add-to-cart'] ) : 0;
+            if ( !$bundle_product_id ) return $cart_item_data;
+
+            $add_as_separate = get_post_meta( $bundle_product_id, '_bundle_add_as_separate_items', true ) === 'yes';
+            if ( !$add_as_separate ) return $cart_item_data;
+
+            $posted_personalizations = $form_data['wcb_personalization'] ?? [];
+            $item_id_to_check = $variation_id > 0 ? $variation_id : $product_id;
+
+            foreach ( $posted_personalizations as $group_index => $products ) {
+                foreach ( $products as $pid => $personalizations ) {
+                    $child_product = wc_get_product($pid);
+                    if (!$child_product) continue;
+                    
+                    // Se il prodotto nel form corrisponde a quello che stiamo aggiungendo al carrello
+                    if ($child_product->is_type('variable')) {
+                        // Se è variabile, dobbiamo trovare la variante corretta per fare il match
+                        // Questa parte può diventare complessa; per ora ci basiamo sul parent ID
+                    } else {
+                        if ($pid == $product_id && !empty($personalizations[0])) {
+                             $bundle_groups = get_post_meta($bundle_product_id, '_bundle_groups', true);
+                             $group_config = $bundle_groups[$group_index] ?? null;
+                             if ($group_config && ($group_config['personalization_enabled'] ?? 'no') === 'yes') {
+                                $cart_item_data['wcb_personalization'] = sanitize_text_field($personalizations[0]);
+                                $cart_item_data['wcb_personalization_label'] = $group_config['personalization_label'] ?? __('Personalizzazione', 'wcb-framework');
+                                return $cart_item_data;
+                             }
+                        }
+                    }
+                }
+            }
+        }
+        return $cart_item_data;
     }
     
     private function find_variation_id_from_attributes( $product_id, $posted_attributes, &$errors_ref = null ) {
@@ -684,6 +718,13 @@ final class WC_Custom_Bundle_Framework {
                  }
             }
         }
+        if ( ! empty( $cart_item['wcb_personalization'] ) ) {
+            $label = $cart_item['wcb_personalization_label'] ?? __('Personalizzazione', 'wcb-framework');
+            $item_data[] = [
+                'key'     => $label,
+                'display' => esc_html( $cart_item['wcb_personalization'] ),
+            ];
+        }
         return $item_data;
     }
 
@@ -712,6 +753,10 @@ final class WC_Custom_Bundle_Framework {
                 if (!empty($display_item['personalization'])) $display_line .= ' | ' . esc_html($display_item['personalization_label']) . ': ' . esc_html($display_item['personalization']);
                 $item->add_meta_data(':>', $display_line, false);
             }
+        }
+        if ( ! empty( $values['wcb_personalization'] ) ) {
+            $label = $values['wcb_personalization_label'] ?? __('Personalizzazione', 'wcb-framework');
+            $item->add_meta_data( $label, $values['wcb_personalization'] );
         }
     }
 

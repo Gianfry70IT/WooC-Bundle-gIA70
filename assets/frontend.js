@@ -477,28 +477,71 @@ jQuery(document).ready(function($) {
   initLightbox();
 });
 
+function openLightbox(imageUrl, caption) {
+    const $lightbox = jQuery('#wcb-lightbox');
+    const $lightboxImage = $lightbox.find('.wcb-lightbox-image');
+    const $lightboxCaption = $lightbox.find('.wcb-lightbox-caption');
+    
+    $lightboxImage.attr('src', imageUrl);
+    $lightboxCaption.text(caption);
+
+    // MODIFICA: Cambia direttamente lo stile display invece di usare classi
+    $lightbox.css('display', 'flex').hide().fadeIn(300);
+    $lightbox.css('opacity', '1');
+    $lightbox.addClass("show");
+    jQuery('body').css('overflow', 'hidden');
+}
+
+function closeLightbox() {
+    const $lightbox = jQuery('#wcb-lightbox');
+    
+    // MODIFICA: Nascondi con animazione e poi reimposta display: none
+    $lightbox.fadeOut(300, function() {
+        jQuery(this).css('display', 'none');
+        $lightbox.removeClass("show");
+    });
+    jQuery('body').css('overflow', '');
+    
+    setTimeout(() => {
+        $lightbox.find('.wcb-lightbox-image').attr('src', '');
+        $lightbox.find('.wcb-lightbox-caption').text('');
+    }, 300);
+}
+
 function initLightbox() {
     const $bundleForm = jQuery('.wcb-bundle-form');
     if ($bundleForm.length === 0) return;
     
+    // Apri lightbox al click sull'immagine
     $bundleForm.on('click', '.wcb-thumbnail-image', function(e) {
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
+        e.stopPropagation();
+        
         const $image = jQuery(this);
-        openLightbox($image.data('full-image'), $image.closest('.wcb-product-item').find('.wcb-product-name').text());
+        const imageUrl = $image.data('full-image');
+        const productName = $image.closest('.wcb-product-item').find('.wcb-product-name').text();
+        
+        openLightbox(imageUrl, productName);
     });
     
+    // Chiudi lightbox
     jQuery(document).on('click', '.wcb-lightbox-close, .wcb-lightbox', function(e) {
-        if (e.target === this || jQuery(e.target).hasClass('wcb-lightbox-close')) closeLightbox();
-    }).on('click', '.wcb-lightbox-image', e => e.stopPropagation())
-      .on('keyup', e => { if (e.key === 'Escape') closeLightbox(); });
-}
-
-function openLightbox(imageUrl, caption) {
-    const $lightbox = jQuery('#wcb-lightbox');
-    $lightbox.find('.wcb-lightbox-image').attr('src', imageUrl);
-    $lightbox.find('.wcb-lightbox-caption').text(caption);
-    $lightbox.css('display', 'flex').hide().fadeIn(300);
-    jQuery('body').addClass('wcb-lightbox-open');
+        if (e.target === this || jQuery(e.target).hasClass('wcb-lightbox-close')) {
+            closeLightbox();
+        }
+    });
+    
+    // Previeni la chiusura quando si clicca sull'immagine
+    jQuery(document).on('click', '.wcb-lightbox-image', function(e) {
+        e.stopPropagation();
+    });
+    
+    // Chiudi con ESC
+    jQuery(document).on('keyup', function(e) {
+        if (e.key === 'Escape') {
+            closeLightbox();
+        }
+    });
 }
 
 function closeLightbox() {
