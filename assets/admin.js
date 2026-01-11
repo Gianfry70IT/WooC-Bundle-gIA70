@@ -5,6 +5,7 @@
 jQuery(document).ready(function($) {
     const $groupsContainer = $('#bundle_groups_container');
 
+    // --- FUNZIONI DI FORMATTAZIONE PER LA RICERCA SELECT2 ---
     function formatProduct(product) {
         if (product.loading) return product.text;
         return $(
@@ -21,6 +22,7 @@ jQuery(document).ready(function($) {
         return product.text || product.id;
     }
 
+    // --- NUOVA FUNZIONE ROBUSTA PER VISUALIZZARE LA GALLERIA ---
     function renderProductGallery($group) {
         const $galleryContainer = $group.find('.wcb-product-gallery');
         const $select = $group.find('select.wc-product-search');
@@ -31,6 +33,7 @@ jQuery(document).ready(function($) {
         selectedData.forEach(function(product) {
             let imageUrl = product.image_url;
 
+            // Fallback per gli elementi caricati inizialmente, dove l'URL non è nell'oggetto dati di select2
             if (!imageUrl) {
                 const originalOption = $select.find(`option[value="${product.id}"]`);
                 if (originalOption.length) {
@@ -38,6 +41,7 @@ jQuery(document).ready(function($) {
                 }
             }
             
+            // Fallback finale al placeholder se non viene trovata nessuna immagine
             imageUrl = imageUrl || wc_enhanced_select_params.ajax_url.replace('/admin-ajax.php', '/images/placeholder.png');
 
             const galleryItemHtml = `
@@ -49,6 +53,7 @@ jQuery(document).ready(function($) {
         });
     }
 
+    // --- LOGICA UNIFICATA PER LA VISIBILITÀ DEI CAMPI ---
     function gestisciVisibilitaGenerale() {
         const productType = $('#product-type').val();
         if (productType !== 'custom_bundle') {
@@ -65,6 +70,7 @@ jQuery(document).ready(function($) {
     $('body').on('change', '#product-type, #_bundle_pricing_type', gestisciVisibilitaGenerale);
     gestisciVisibilitaGenerale();
 
+    // --- GESTIONE DEI GRUPPI ---
     function getGroupHtml(groupIndex, data = {}) {
         const title = data.title || '';
         const min_qty = data.min_qty || 1;
@@ -76,6 +82,8 @@ jQuery(document).ready(function($) {
         const personalization_enabled = data.personalization_enabled === 'yes' ? 'checked' : '';
         const personalization_label = data.personalization_label || 'Il tuo Nome';
         const personalization_required = data.personalization_required === 'yes' ? 'checked' : '';
+        // Modifica: Aggiunto recupero del price_override
+        const price_override = data.price_override || '';
 
         let optionsHtml = '';
         if (products.length > 0) {
@@ -104,6 +112,9 @@ jQuery(document).ready(function($) {
                 <p class="form-field half-width rule-field rule-multiple" style="display: ${selection_mode === 'multiple' || selection_mode === 'multiple_quantity' ? 'block' : 'none'};"><label>Quantità Minima</label><input type="number" name="_bundle_groups[${groupIndex}][min_qty]" value="${min_qty}" min="0" step="1"></p>
                 <p class="form-field half-width rule-field rule-multiple" style="display: ${selection_mode === 'multiple' || selection_mode === 'multiple_quantity' ? 'block' : 'none'};"><label>Quantità Massima (0 per illimitata)</label><input type="number" name="_bundle_groups[${groupIndex}][max_qty]" value="${max_qty}" min="0" step="1"></p>
                 <p class="form-field rule-field rule-quantity" style="display: ${selection_mode === 'quantity' ? 'block' : 'none'};"><label>Quantità Totale</label><input type="number" name="_bundle_groups[${groupIndex}][total_qty]" value="${total_qty}" min="1" step="1"></p>
+                
+                <p class="form-field"><label>Prezzo Fisso per Articolo (€) <span class="description">(Lascia vuoto per usare il prezzo di listino)</span></label><input type="text" name="_bundle_groups[${groupIndex}][price_override]" value="${price_override}" placeholder="Es. 3.99" class="wc_input_price"></p>
+                
                 <hr/><h4>Opzioni di Personalizzazione</h4>
                 <p class="form-field"><label><input type="checkbox" class="personalization-enable" name="_bundle_groups[${groupIndex}][personalization_enabled]" value="yes" ${personalization_enabled}> Abilita campo di testo personalizzato</label></p>
                 <div class="personalization-options" style="display: ${personalization_enabled ? 'block' : 'none'};">
@@ -124,11 +135,27 @@ jQuery(document).ready(function($) {
         });
     }
 
+    /*function initEnhancedSelect($target) {
+        $target.each(function() {
+            if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
+            $(this).select2({
+                allowClear: $(this).data('allow_clear') || false, placeholder: $(this).data('placeholder'), minimumInputLength: 3,
+                escapeMarkup: markup => markup, templateResult: formatProduct, templateSelection: formatProductSelection,
+                ajax: {
+                    url: wc_enhanced_select_params.ajax_url, dataType: 'json', delay: 250,
+                    data: params => ({ term: params.term, action: $(this).data('action'), security: wc_enhanced_select_params.search_products_nonce, exclude: $(this).attr('data-exclude') || '' }),
+                    processResults: data => ({ results: data }), cache: false
+                }
+            }).addClass('enhanced');
+        });
+    }*/
+
     function updateProductExclusions() {
         const allSelectedIds = Array.from($groupsContainer.find('select.wc-product-search option:selected')).map(el => el.value);
         $groupsContainer.find('select.wc-product-search').attr('data-exclude', allSelectedIds.join(','));
     }
 
+    // --- INIZIALIZZAZIONE E GESTIONE EVENTI ---
     if (wcb_bundle_data?.groups.length > 0) {
         wcb_bundle_data.groups.forEach((group, index) => $groupsContainer.append(getGroupHtml(index, group)));
     }
@@ -137,6 +164,7 @@ jQuery(document).ready(function($) {
     $('.bundle-group').each(function() { renderProductGallery($(this)); });
     updateProductExclusions();
     
+    // Stato iniziale dell'accordion: il primo è aperto, gli altri chiusi.
     $('.bundle-group:not(:first)').addClass('closed').find('.group-content').hide();
 
     $('#add_bundle_group').on('click', function() {
@@ -148,6 +176,7 @@ jQuery(document).ready(function($) {
         updateProductExclusions();
     });
 
+    // Pulsanti Espandi/Chiudi Tutto
     $('#expand_all_groups').on('click', function() {
         $('.bundle-group.closed').removeClass('closed').find('.group-content').slideDown(300);
     });
@@ -175,9 +204,10 @@ jQuery(document).ready(function($) {
         updateProductExclusions();
     });
 
+    // Gestione Clic per Espandere/Comprimere
     $groupsContainer.on('click', '.group-header', function(e) {
         if ($(e.target).is('.sort-handle, .remove-group, .button')) {
-            return; 
+            return; // Non fare nulla se si clicca sulle icone di ordinamento o rimozione
         }
         const $group = $(this).closest('.bundle-group');
         if ($group.hasClass('closed')) {
@@ -205,11 +235,13 @@ jQuery(document).ready(function($) {
 
     $groupsContainer.sortable({ handle: '.sort-handle', update: () => { reindexGroups(); updateProductExclusions(); } });
     
+// Aggiungi questa funzione
 function showSelect2Loader($select) {
   $select.data('select2').$dropdown.find('.select2-results')
     .html('<div class="wcb-select2-loading">Caricamento...</div>');
 }
 
+// Modifica la funzione initEnhancedSelect per includere il loader
 function initEnhancedSelect($target) {
   $target.each(function() {
     if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
@@ -228,11 +260,13 @@ function initEnhancedSelect($target) {
             }
         }
     }).on('select2:open', function() {
+      // Aggiungi una classe personalizzata al container
       $('.select2-container--open').addClass('wcb-select2-open');
     }).addClass('enhanced');
   });
 }
 
+// Aggiungi stili per il loader
 $('head').append(`
   <style>
     .wcb-select2-loading {
@@ -249,4 +283,3 @@ $('head').append(`
 `);
 
 });
-

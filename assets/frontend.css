@@ -306,8 +306,8 @@ select option:disabled { color: #aaaaaa; background-color: #f5f5f5; }
 }
 
 .wcb-product-thumbnail img {
-    width: 60px;
-    height: 60px;
+    width: 180px;
+    height: 250px;
     object-fit: cover;
     border-radius: 4px;
     border: 2px solid #e0e0e0;
@@ -421,4 +421,69 @@ body.wcb-lightbox-open {
         margin-left: 0;
         margin-top: 10px;
     }
+}
+
+/* Stili per il raggruppamento nel carrello */
+.wcb-cart-bundle-info {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.9em;
+}
+
+.wcb-bundle-label {
+    display: block;
+    font-weight: 600;
+    color: #0073aa;
+    margin-bottom: 2px;
+}
+
+.wcb-edit-bundle-link {
+    font-size: 0.85em;
+    text-decoration: underline;
+    color: #555;
+    cursor: pointer;
+}
+
+.wcb-edit-bundle-link:hover {
+    color: #0073aa;
+}
+
+/* Bordi per il raggruppamento delle righe */
+/* Nota: La maggior parte dei temi usa border-bottom sulle td o tr */
+/* Noi useremo un bordo spesso laterale e manipoleremo i bordi orizzontali */
+
+tr.cart_item.wcb-group-start td,
+tr.cart_item.wcb-group-middle td,
+tr.cart_item.wcb-group-end td,
+tr.cart_item.wcb-group-single td {
+    background-color: rgba(0, 115, 170, 0.02); /* Leggero sfondo per unificare */
+}
+
+/* Bordo Sinistro colorato */
+tr.cart_item.wcb-group-start td:first-child,
+tr.cart_item.wcb-group-middle td:first-child,
+tr.cart_item.wcb-group-end td:first-child,
+tr.cart_item.wcb-group-single td:first-child {
+    border-left: 4px solid #0073aa;
+    position: relative;
+}
+
+/* Bordo Superiore del gruppo */
+tr.cart_item.wcb-group-start td,
+tr.cart_item.wcb-group-single td {
+    border-top: 2px solid #0073aa !important;
+}
+
+/* Bordo Inferiore del gruppo */
+tr.cart_item.wcb-group-end td,
+tr.cart_item.wcb-group-single td {
+    border-bottom: 2px solid #0073aa !important;
+}
+
+/* Rimozione bordi interni */
+tr.cart_item.wcb-group-start td,
+tr.cart_item.wcb-group-middle td {
+    border-bottom: none !important; 
+    /* Alcuni temi potrebbero forzare un bordo, in tal caso provare 0 o transparent */
+    border-bottom: 1px dashed #e0e0e0 !important; 
 }

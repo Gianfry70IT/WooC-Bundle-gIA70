@@ -4,143 +4,212 @@
 
 jQuery(document).ready(function($) {
     const $bundleForm = $('.wcb-bundle-form');
+    
+    // =========================================================================
+    // 1. GESTIONE CARRELLO (Visual Grouping & Alerts)
+    // =========================================================================
+    
+    function groupCartItems() {
+        if ($('table.cart, .shop_table.cart').length === 0) return;
+
+        $('tr.cart_item').removeClass('wcb-group-start wcb-group-middle wcb-group-end wcb-group-single');
+        
+        let prevBundleId = null;
+        let $rows = $('tr.cart_item');
+        
+        $rows.each(function(index) {
+            const $row = $(this);
+            const $info = $row.find('.wcb-cart-bundle-info');
+            const currentBundleId = $info.length ? $info.data('wcb-bundle-id') : null;
+
+            if (currentBundleId) {
+                if (currentBundleId === prevBundleId) {
+                     $info.find('.wcb-bundle-label, .wcb-edit-bundle-link').hide();
+                }
+
+                const nextRow = $rows.eq(index + 1);
+                const nextInfo = nextRow.find('.wcb-cart-bundle-info');
+                const nextBundleId = nextInfo.length ? nextInfo.data('wcb-bundle-id') : null;
+                
+                const isStart = currentBundleId !== prevBundleId;
+                const isEnd = currentBundleId !== nextBundleId;
+
+                if (isStart && isEnd) {
+                    $row.addClass('wcb-group-single');
+                } else if (isStart) {
+                    $row.addClass('wcb-group-start');
+                } else if (isEnd) {
+                    $row.addClass('wcb-group-end');
+                } else {
+                    $row.addClass('wcb-group-middle');
+                }
+            }
+            prevBundleId = currentBundleId;
+        });
+    }
+
+    // Esegui grouping al load e dopo update carrello ajax
+    groupCartItems();
+    $(document.body).on('updated_cart_totals', groupCartItems);
+
+    // Alert Cancellazione
+    $(document.body).on('click', '.remove', function(e) {
+        const $row = $(this).closest('tr.cart_item');
+        const $info = $row.find('.wcb-cart-bundle-info').length ? $row.find('.wcb-cart-bundle-info') : $(this).closest('.cart_item').find('.wcb-cart-bundle-info');
+        
+        if ($info.length > 0) {
+            if (!confirm(wcb_params.i18n.confirm_remove_bundle)) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                return false;
+            }
+        }
+    });
+
     if ($bundleForm.length === 0) return;
 
     const $addToCartButton = $bundleForm.find('.single_add_to_cart_button');
     const $messagesContainer = $('#wcb-ajax-messages');
 
-  $bundleForm.on('submit', function(e) {
-    e.preventDefault();
-    if ($addToCartButton.is(':disabled')) return;
-
-    $addToCartButton.prop('disabled', true).text('Aggiunta...');
-    $messagesContainer.slideUp().empty();
-
-    $.ajax({
-      type: 'POST',
-      url: wcb_params.ajax_url,
-      data: {
-        action: 'wcb_add_bundle_to_cart',
-        security: wcb_params.nonce,
-        form_data: $bundleForm.serialize()
-      },
-      success: function(response) {
-        if (response.success) {
-          $messagesContainer.html('<div class="woocommerce-message">' + response.data.message + '</div>').slideDown();
-          setTimeout(function() {
-            window.location.href = response.data.cart_url;
-          }, 1000);
-        } else {
-          console.error("Errore di validazione dal backend:", response.data.messages);
-
-          let errorsHtml = '';
-          response.data.messages.forEach(function(msg) {
-            errorsHtml += '<li>' + msg + '</li>';
-          });
-
-          $messagesContainer.html('<ul class="woocommerce-error" role="alert">' + errorsHtml + '</ul>').slideDown();
-          $addToCartButton.prop('disabled', false).text($addToCartButton.data('original-text'));
-        }
-      },
-      error: function() {
-        $messagesContainer.html('<ul class="woocommerce-error" role="alert"><li>' + 'Si è verificato un errore critico. Riprova.' + '</li></ul>').slideDown();
-        $addToCartButton.prop('disabled', false).text($addToCartButton.data('original-text'));
-      }
-    });
-  });
-
-  function isPersonalizationComplete($productItem) {
-    if (!$productItem.data('personalization-required')) {
-      return true; 
-    }
-    let isComplete = true;
-    $productItem.find('.wcb-personalization-field-container:visible .wcb-personalization-input, .wcb-variation-set .wcb-personalization-input').each(function() {
-      if ($(this).val().trim() === '') {
-        isComplete = false;
-        $(this).addClass('wcb-input-error');
-      } else {
-        $(this).removeClass('wcb-input-error');
-      }
-    });
-    return isComplete;
-  }
-
-  function areVariationsComplete($productItem) {
-    if ($productItem.find('.wcb-variation-container').length === 0 && $productItem.find('.wcb-variation-fields-template').length === 0) {
-      return true;
-    }
-    let isComplete = true;
-    $productItem.find('.wcb-variation-container:visible select.wcb-variation-select, .wcb-variation-sets-container .wcb-variation-set select.wcb-variation-select').each(function() {
-      if ($(this).val() === '') isComplete = false;
-    });
-    return isComplete;
-  }
-
-  function validateGroup($group) {
-    const mode = $group.data('selection-mode');
-    let isValid = false;
-
-    switch (mode) {
-      case 'single': {
-        const $radio = $group.find('input[type="radio"]:checked');
-        if ($radio.length > 0) {
-          const $productItem = $radio.closest('.wcb-product-item');
-          isValid = areVariationsComplete($productItem) && isPersonalizationComplete($productItem);
-        } else {
-            // Se il gruppo non è obbligatorio, è valido anche se vuoto
-            if (!$group.data('is-required')) isValid = true;
-        }
-        break;
-      }
-      case 'multiple': {
-        const min = $group.data('min-qty');
-        const max = $group.data('max-qty');
-        const $checkboxes = $group.find('input[type="checkbox"]:checked');
-        if ($checkboxes.length >= min && (max === 0 || $checkboxes.length <= max)) {
-          let allItemsValid = true;
-          $checkboxes.each(function() {
-            const $productItem = $(this).closest('.wcb-product-item');
-            if (!areVariationsComplete($productItem) || !isPersonalizationComplete($productItem)) {
-              allItemsValid = false;
-              return false;
-            }
-          });
-          isValid = allItemsValid;
-        }
-        if ($checkboxes.length === 0 && !$group.data('is-required')) isValid = true;
-        break;
-      }
-      case 'quantity':
-      case 'multiple_quantity': {
-        const min = (mode === 'quantity') ? $group.data('total-qty') : $group.data('min-qty');
-        const max = (mode === 'quantity') ? $group.data('total-qty') : $group.data('max-qty');
-        let currentTotal = 0;
-        let allItemsValid = true;
-        $group.find('.wcb-quantity-input').each(function() {
-          const qty = parseInt($(this).val()) || 0;
-          currentTotal += qty;
-          if (qty > 0) {
-            const $productItem = $(this).closest('.wcb-product-item');
-            if (!areVariationsComplete($productItem) || !isPersonalizationComplete($productItem)) {
-              allItemsValid = false;
-            }
-          }
-        });
-
-        if (currentTotal === 0 && !$group.data('is-required')) {
-            isValid = true;
-        } else if (allItemsValid && currentTotal >= min && (max === 0 || currentTotal <= max)) {
-            isValid = true;
-            if (mode === 'quantity') isValid = (currentTotal === max);
-        }
-        break;
-      }
-    }
-    return isValid;
-  }
-  
     // =========================================================================
-    // LOGICA DI CALCOLO PREZZO DINAMICO (RIPRISTINATA)
+    // 2. LOGICA AGGIUNTA AL CARRELLO (AJAX)
+    // =========================================================================
+
+    $bundleForm.on('submit', function(e) {
+        e.preventDefault();
+        if ($addToCartButton.is(':disabled')) return;
+
+        $addToCartButton.prop('disabled', true).text('Elaborazione...');
+        $messagesContainer.slideUp().empty();
+
+        $.ajax({
+            type: 'POST',
+            url: wcb_params.ajax_url,
+            data: {
+                action: 'wcb_add_bundle_to_cart',
+                security: wcb_params.nonce,
+                form_data: $bundleForm.serialize()
+            },
+            success: function(response) {
+                if (response.success) {
+                    $messagesContainer.html('<div class="woocommerce-message">' + response.data.message + '</div>').slideDown();
+                    setTimeout(function() {
+                        window.location.href = response.data.cart_url;
+                    }, 1000);
+                } else {
+                    console.error("Errore di validazione dal backend:", response.data.messages);
+
+                    let errorsHtml = '';
+                    response.data.messages.forEach(function(msg) {
+                        errorsHtml += '<li>' + msg + '</li>';
+                    });
+
+                    $messagesContainer.html('<ul class="woocommerce-error" role="alert">' + errorsHtml + '</ul>').slideDown();
+                    $addToCartButton.prop('disabled', false).text($addToCartButton.data('original-text'));
+                }
+            },
+            error: function() {
+                $messagesContainer.html('<ul class="woocommerce-error" role="alert"><li>' + 'Si è verificato un errore critico. Riprova.' + '</li></ul>').slideDown();
+                $addToCartButton.prop('disabled', false).text($addToCartButton.data('original-text'));
+            }
+        });
+    });
+
+    // =========================================================================
+    // 3. FUNZIONI DI VALIDAZIONE (Completezza e Regole)
+    // =========================================================================
+
+    function isPersonalizationComplete($productItem) {
+        if (!$productItem.data('personalization-required')) {
+            return true; 
+        }
+        let isComplete = true;
+        $productItem.find('.wcb-personalization-field-container:visible .wcb-personalization-input, .wcb-variation-set .wcb-personalization-input').each(function() {
+            if ($(this).val().trim() === '') {
+                isComplete = false;
+                $(this).addClass('wcb-input-error');
+            } else {
+                $(this).removeClass('wcb-input-error');
+            }
+        });
+        return isComplete;
+    }
+
+    function areVariationsComplete($productItem) {
+        if ($productItem.find('.wcb-variation-container').length === 0 && $productItem.find('.wcb-variation-fields-template').length === 0) {
+            return true;
+        }
+        let isComplete = true;
+        $productItem.find('.wcb-variation-container:visible select.wcb-variation-select, .wcb-variation-sets-container .wcb-variation-set select.wcb-variation-select').each(function() {
+            if ($(this).val() === '') isComplete = false;
+        });
+        return isComplete;
+    }
+
+    function validateGroup($group) {
+        const mode = $group.data('selection-mode');
+        let isValid = false;
+
+        switch (mode) {
+            case 'single': {
+                const $radio = $group.find('input[type="radio"]:checked');
+                if ($radio.length > 0) {
+                    const $productItem = $radio.closest('.wcb-product-item');
+                    isValid = areVariationsComplete($productItem) && isPersonalizationComplete($productItem);
+                } else {
+                    if (!$group.data('is-required')) isValid = true;
+                }
+                break;
+            }
+            case 'multiple': {
+                const min = $group.data('min-qty');
+                const max = $group.data('max-qty');
+                const $checkboxes = $group.find('input[type="checkbox"]:checked');
+                if ($checkboxes.length >= min && (max === 0 || $checkboxes.length <= max)) {
+                    let allItemsValid = true;
+                    $checkboxes.each(function() {
+                        const $productItem = $(this).closest('.wcb-product-item');
+                        if (!areVariationsComplete($productItem) || !isPersonalizationComplete($productItem)) {
+                            allItemsValid = false;
+                            return false;
+                        }
+                    });
+                    isValid = allItemsValid;
+                }
+                if ($checkboxes.length === 0 && !$group.data('is-required')) isValid = true;
+                break;
+            }
+            case 'quantity':
+            case 'multiple_quantity': {
+                const min = (mode === 'quantity') ? $group.data('total-qty') : $group.data('min-qty');
+                const max = (mode === 'quantity') ? $group.data('total-qty') : $group.data('max-qty');
+                let currentTotal = 0;
+                let allItemsValid = true;
+                $group.find('.wcb-quantity-input').each(function() {
+                    const qty = parseInt($(this).val()) || 0;
+                    currentTotal += qty;
+                    if (qty > 0) {
+                        const $productItem = $(this).closest('.wcb-product-item');
+                        if (!areVariationsComplete($productItem) || !isPersonalizationComplete($productItem)) {
+                            allItemsValid = false;
+                        }
+                    }
+                });
+
+                if (currentTotal === 0 && !$group.data('is-required')) {
+                    isValid = true;
+                } else if (allItemsValid && currentTotal >= min && (max === 0 || currentTotal <= max)) {
+                    isValid = true;
+                    if (mode === 'quantity') isValid = (currentTotal === max);
+                }
+                break;
+            }
+        }
+        return isValid;
+    }
+
+    // =========================================================================
+    // 4. LOGICA DI CALCOLO PREZZO DINAMICO
     // =========================================================================
 
     function getVariationPrice(productId, attributes, callback) {
@@ -173,7 +242,6 @@ jQuery(document).ready(function($) {
         const priceHTML = $element.html();
         let priceText = '';
 
-        // Gestisce sia prezzi semplici che in saldo
         const ins = $element.find('ins');
         if (ins.length > 0) {
             priceText = ins.text();
@@ -184,7 +252,6 @@ jQuery(document).ready(function($) {
         const cleanPrice = priceText.replace(wcb_params.pricing.currency_symbol, '').replace(wcb_params.pricing.thousand_separator, '').replace(wcb_params.pricing.decimal_separator, '.').trim();
         return parseFloat(cleanPrice) || 0;
     }
-
 
     function finalizePriceCalculation(totalPrice) {
         const pricing = wcb_params.pricing;
@@ -204,7 +271,6 @@ jQuery(document).ready(function($) {
         let formattedPrice = finalPrice.toFixed(2)
             .replace('.', wcb_params.pricing.decimal_separator);
 
-        // Aggiungi il simbolo della valuta in base alla posizione
         if (wcb_params.pricing.currency_position.includes('left')) {
             formattedPrice = wcb_params.pricing.currency_symbol + formattedPrice;
         } else {
@@ -263,20 +329,25 @@ jQuery(document).ready(function($) {
             const { item, quantity } = bundleItem;
             const $item = item;
             const productId = $item.data('product-id');
+            const overridePrice = $item.data('price-override'); 
+
+            if (overridePrice !== undefined && overridePrice !== null && overridePrice !== '') {
+                totalPrice += parseFloat(overridePrice) * quantity;
+                return; 
+            }
+
             const $priceElement = $item.find('.wcb-product-price');
             const basePrice = parsePriceFromElement($priceElement);
-
             const isVariable = $item.find('.wcb-variation-container').length > 0 || $item.find('.wcb-variation-fields-template').length > 0;
 
             if (!isVariable) {
                 totalPrice += basePrice * quantity;
             } else {
-                // Gestione prodotto variabile
                 const $variationContainers = $item.find('.wcb-variation-container:visible, .wcb-variation-set');
                 
-                if ($variationContainers.length === 0) { // Modalità a quantità, ma ancora a 0
-                    // Non fare nulla, il prezzo non viene aggiunto
-                } else if ($variationContainers.length === 1 && !$item.find('.wcb-variation-set').length) { // Scelta singola/multipla
+                if ($variationContainers.length === 0) { 
+                    // Nessun set
+                } else if ($variationContainers.length === 1 && !$item.find('.wcb-variation-set').length) { 
                     const selectedAttributes = {};
                     let allAttributesSelected = true;
                     $variationContainers.find('.wcb-variation-select').each(function() {
@@ -296,10 +367,8 @@ jQuery(document).ready(function($) {
                             pendingRequests--;
                             if (pendingRequests === 0) finalizePriceCalculation(totalPrice);
                         });
-                    } else {
-                        // Un attributo non è selezionato, non aggiungiamo prezzo
                     }
-                } else { // Modalità a quantità con più set di varianti
+                } else { 
                     $variationContainers.each(function() {
                         const $set = $(this);
                         const selectedAttributes = {};
@@ -317,7 +386,7 @@ jQuery(document).ready(function($) {
                         if (allAttributesSelectedInSet) {
                             pendingRequests++;
                             getVariationPrice(productId, selectedAttributes, function(variationPrice) {
-                                totalPrice += variationPrice; // La quantità qui è 1 per set
+                                totalPrice += variationPrice; 
                                 pendingRequests--;
                                 if (pendingRequests === 0) finalizePriceCalculation(totalPrice);
                             });
@@ -332,149 +401,285 @@ jQuery(document).ready(function($) {
         }
     }
 
+    function updateBundleState() {
+        let isBundleComplete = true;
+        $('.wcb-bundle-group').each(function() {
+            const $group = $(this);
+            const isRequired = $group.data('is-required');
+            const isGroupComplete = validateGroup($group);
 
-  function updateBundleState() {
-    let isBundleComplete = true;
-    $('.wcb-bundle-group').each(function() {
-      const $group = $(this);
-      const isRequired = $group.data('is-required');
-      const isGroupComplete = validateGroup($group);
-
-      if (isGroupComplete) {
-        $group.removeClass('wcb-group-incomplete').addClass('wcb-group-complete');
-      } else {
-        $group.removeClass('wcb-group-complete');
-        if (isRequired) {
-          $group.addClass('wcb-group-incomplete');
-          isBundleComplete = false;
-        }
-      }
-    });
-    $addToCartButton.prop('disabled', !isBundleComplete);
-    // Richiama il calcolo del prezzo ogni volta che lo stato cambia
-    updateBundlePrice();
-  }
-
-  $bundleForm.on('change', '.wcb-variation-select', function() {
-    const $changedSelect = $(this);
-    const $productItem = $changedSelect.closest('.wcb-product-item');
-    const variationData = $productItem.data('variation-data');
-    if (!variationData || !Array.isArray(variationData)) { 
-      updateBundleState(); 
-      return; 
-    }
-
-    const $selectContainer = $changedSelect.closest('.wcb-variation-container, .wcb-variation-set');
-    const $allSelects = $selectContainer.find('.wcb-variation-select');
-    let currentSelection = {};
-    $allSelects.each(function() {
-      const attributeName = $(this).data('attribute-name');
-      const selectedValue = $(this).val();
-      if (selectedValue) {
-        currentSelection[attributeName] = selectedValue;
-      }
-    });
-
-    $allSelects.not($changedSelect).each(function() {
-      const $currentSelect = $(this);
-      const attributeName = $currentSelect.data('attribute-name');
-      const originalValue = $currentSelect.val();
-      $currentSelect.find('option:gt(0)').prop('disabled', true);
-      
-      const possibleOptions = new Set();
-      variationData.forEach(function(variation) {
-        let isMatch = true;
-        for (const attr in currentSelection) {
-            if (attr !== attributeName && variation[attr] && variation[attr] !== currentSelection[attr]) {
-                isMatch = false;
-                break;
+            if (isGroupComplete) {
+                $group.removeClass('wcb-group-incomplete').addClass('wcb-group-complete');
+            } else {
+                $group.removeClass('wcb-group-complete');
+                if (isRequired) {
+                    $group.addClass('wcb-group-incomplete');
+                    isBundleComplete = false;
+                }
             }
-        }
-        if (isMatch && variation[attributeName]) {
-            possibleOptions.add(variation[attributeName]);
-        }
-      });
-      
-      $currentSelect.find('option').each(function(){
-        if(possibleOptions.has($(this).val())){
-          $(this).prop('disabled', false);
-        }
-      });
+        });
+        $addToCartButton.prop('disabled', !isBundleComplete);
+        updateBundlePrice();
+    }
 
-      if ($currentSelect.find('option:selected').is(':disabled')) {
-        $currentSelect.val('');
-      }
+    // =========================================================================
+    // 5. EVENT LISTENERS (UI Interactions)
+    // =========================================================================
+
+    $bundleForm.on('change', '.wcb-variation-select', function() {
+        const $changedSelect = $(this);
+        const $productItem = $changedSelect.closest('.wcb-product-item');
+        const variationData = $productItem.data('variation-data');
+        if (!variationData || !Array.isArray(variationData)) { 
+            updateBundleState(); 
+            return; 
+        }
+
+        const $selectContainer = $changedSelect.closest('.wcb-variation-container, .wcb-variation-set');
+        const $allSelects = $selectContainer.find('.wcb-variation-select');
+        let currentSelection = {};
+        $allSelects.each(function() {
+            const attributeName = $(this).data('attribute-name');
+            const selectedValue = $(this).val();
+            if (selectedValue) {
+                currentSelection[attributeName] = selectedValue;
+            }
+        });
+
+        $allSelects.not($changedSelect).each(function() {
+            const $currentSelect = $(this);
+            const attributeName = $currentSelect.data('attribute-name');
+            const originalValue = $currentSelect.val();
+            $currentSelect.find('option:gt(0)').prop('disabled', true);
+            
+            const possibleOptions = new Set();
+            variationData.forEach(function(variation) {
+                let isMatch = true;
+                for (const attr in currentSelection) {
+                    if (attr !== attributeName && variation[attr] && variation[attr] !== currentSelection[attr]) {
+                        isMatch = false;
+                        break;
+                    }
+                }
+                if (isMatch && variation[attributeName]) {
+                    possibleOptions.add(variation[attributeName]);
+                }
+            });
+            
+            $currentSelect.find('option').each(function(){
+                if(possibleOptions.has($(this).val())){
+                    $(this).prop('disabled', false);
+                }
+            });
+
+            if ($currentSelect.find('option:selected').is(':disabled')) {
+                $currentSelect.val('');
+            }
+        });
+        updateBundleState();
     });
-    updateBundleState();
-  });
 
-  $bundleForm.on('change', 'input[type="radio"], input[type="checkbox"]', function() {
-    const $input = $(this);
-    const $productItem = $input.closest('.wcb-product-item');
-    const $variationContainer = $productItem.find('.wcb-variation-container');
-    const $personalizationContainer = $productItem.find('.wcb-personalization-field-container');
-    const isChecked = $input.is(':checked');
+    $bundleForm.on('change', 'input[type="radio"], input[type="checkbox"]', function() {
+        const $input = $(this);
+        const $productItem = $input.closest('.wcb-product-item');
+        const $variationContainer = $productItem.find('.wcb-variation-container');
+        const $personalizationContainer = $productItem.find('.wcb-personalization-field-container');
+        const isChecked = $input.is(':checked');
 
-    if ($input.is('[type="radio"]')) {
-      const $otherProductItems = $input.closest('.wcb-group-products').find('.wcb-product-item').not($productItem);
-      $otherProductItems.find('.wcb-variation-container').slideUp().find('select').prop('disabled', true);
-      $otherProductItems.find('.wcb-personalization-field-container').slideUp();
-    }
-
-    if (isChecked) {
-      $variationContainer.slideDown().find('select').prop('disabled', false).first().trigger('change');
-      $personalizationContainer.slideDown();
-    } else {
-      $variationContainer.slideUp().find('select').prop('disabled', true);
-      $personalizationContainer.slideUp();
-    }
-    updateBundleState();
-  });
-
-  $bundleForm.on('change input', '.wcb-quantity-input', function() {
-    const $input = $(this);
-    const qty = parseInt($input.val()) || 0;
-    const $productItem = $input.closest('.wcb-product-item');
-    const $setsContainer = $productItem.find('.wcb-variation-sets-container');
-    const $variationTemplate = $productItem.find('.wcb-variation-fields-template');
-    const $personalizationTemplate = $productItem.find('.wcb-personalization-field-template');
-
-    $setsContainer.empty();
-    if (qty > 0) {
-      for (let i = 0; i < qty; i++) {
-        const $newSet = $('<div class="wcb-variation-set"><h5>' + 'Pezzo ' + (i + 1) + '</h5></div>');
-        if ($variationTemplate.length > 0) {
-          const variationTemplateHtml = $variationTemplate.html().replace(/__INDEX__/g, i);
-          const $newVariationContent = $(variationTemplateHtml);
-          $newVariationContent.find('select').prop('disabled', false);
-          $newSet.append($newVariationContent);
+        if ($input.is('[type="radio"]')) {
+            const $otherProductItems = $input.closest('.wcb-group-products').find('.wcb-product-item').not($productItem);
+            $otherProductItems.find('.wcb-variation-container').slideUp().find('select').prop('disabled', true);
+            $otherProductItems.find('.wcb-personalization-field-container').slideUp();
         }
-        if ($personalizationTemplate.length > 0) {
-          const personalizationTemplateHtml = $personalizationTemplate.html().replace(/__INDEX__/g, i);
-          $newSet.append(personalizationTemplateHtml);
+
+        if (isChecked) {
+            $variationContainer.slideDown().find('select').prop('disabled', false).first().trigger('change');
+            $personalizationContainer.slideDown();
+        } else {
+            $variationContainer.slideUp().find('select').prop('disabled', true);
+            $personalizationContainer.slideUp();
         }
-        $setsContainer.append($newSet);
-      }
-      $setsContainer.slideDown();
-    } else {
-      $setsContainer.slideUp();
-    }
-    updateBundleState();
-  });
-  
-  $bundleForm.on('input', '.wcb-personalization-input.wcb-input-error', function() {
-    if ($(this).val().trim() !== '') {
-      $(this).removeClass('wcb-input-error');
-      updateBundleState();
-    }
-  });
+        updateBundleState();
+    });
 
-  // Salva il testo originale del pulsante
-  $addToCartButton.data('original-text', $addToCartButton.text());
+    $bundleForm.on('change input', '.wcb-quantity-input', function() {
+        const $input = $(this);
+        const qty = parseInt($input.val()) || 0;
+        const $productItem = $input.closest('.wcb-product-item');
+        const $setsContainer = $productItem.find('.wcb-variation-sets-container');
+        const $variationTemplate = $productItem.find('.wcb-variation-fields-template');
+        const $personalizationTemplate = $productItem.find('.wcb-personalization-field-template');
 
-  // Trigger iniziale per impostare lo stato
-  updateBundleState();
-  initLightbox();
+        $setsContainer.empty();
+        if (qty > 0) {
+            for (let i = 0; i < qty; i++) {
+                const $newSet = $('<div class="wcb-variation-set"><h5>' + 'Pezzo ' + (i + 1) + '</h5></div>');
+                if ($variationTemplate.length > 0) {
+                    const variationTemplateHtml = $variationTemplate.html().replace(/__INDEX__/g, i);
+                    const $newVariationContent = $(variationTemplateHtml);
+                    $newVariationContent.find('select').prop('disabled', false);
+                    $newSet.append($newVariationContent);
+                }
+                if ($personalizationTemplate.length > 0) {
+                    const personalizationTemplateHtml = $personalizationTemplate.html().replace(/__INDEX__/g, i);
+                    $newSet.append(personalizationTemplateHtml);
+                }
+                $setsContainer.append($newSet);
+            }
+            $setsContainer.slideDown();
+        } else {
+            $setsContainer.slideUp();
+        }
+        updateBundleState();
+    });
+    
+    $bundleForm.on('input', '.wcb-personalization-input.wcb-input-error', function() {
+        if ($(this).val().trim() !== '') {
+            $(this).removeClass('wcb-input-error');
+            updateBundleState();
+        }
+    });
+
+    // Salva il testo originale del pulsante
+    $addToCartButton.data('original-text', $addToCartButton.text());
+
+    // =========================================================================
+    // 6. LOGICA MODIFICA BUNDLE (AGGIORNATA E ROBUSTA)
+    // =========================================================================
+    
+    function initEditMode() {
+        if (typeof wcb_params.edit_mode === 'undefined' || !wcb_params.edit_mode.active) {
+            updateBundleState(); // Trigger iniziale normale
+            return;
+        }
+        
+        const config = wcb_params.edit_mode.config;
+        const bundleId = wcb_params.edit_mode.bundle_id;
+
+        if (!$('input[name="wcb_update_bundle_id"]').length) {
+            $bundleForm.append('<input type="hidden" name="wcb_update_bundle_id" value="' + bundleId + '">');
+        }
+        
+        $addToCartButton.text(wcb_params.i18n.update_bundle_btn);
+        $addToCartButton.data('original-text', wcb_params.i18n.update_bundle_btn);
+
+        // Helper per popolare select con polling (attende esistenza nel DOM)
+        function waitForAndPopulate($container, attributes, attempt = 1) {
+            if (attempt > 15) return; // Rinuncia dopo ~3 secondi
+            
+            // Cerca i select
+            const $selects = $container.find('select');
+            
+            // Se ci sono attributi da mappare ma non trovo select, aspetto
+            if ($selects.length === 0 && Object.keys(attributes).length > 0) {
+                setTimeout(() => waitForAndPopulate($container, attributes, attempt + 1), 200);
+                return;
+            }
+
+            $.each(attributes, function(key, value) {
+                let attrName = key.startsWith('attribute_') ? key : 'attribute_' + key;
+                
+                // Cerca in modo flessibile
+                let $select = $container.find('select[data-attribute-name="' + attrName + '"]');
+                if (!$select.length) {
+                    $select = $container.find('select[name*="[' + attrName + ']"]');
+                }
+
+                if ($select.length) {
+                    $select.prop('disabled', false); 
+                    $select.val(value).trigger('change');
+                }
+            });
+        }
+
+        $.each(config, function(groupIndex, selections) {
+            const $group = $('.wcb-bundle-group[data-group-index="' + groupIndex + '"]');
+            if (!$group.length) return;
+            
+            // Raggruppa item per ID (gestione quantità)
+            const itemCounts = {};
+            selections.forEach(item => {
+                // Usa parent_id se è variante, altrimenti item_id
+                const key = (item.is_variation && item.parent_id) ? item.parent_id : item.item_id;
+                if (!itemCounts[key]) itemCounts[key] = [];
+                itemCounts[key].push(item);
+            });
+
+            $.each(itemCounts, function(prodId, items) {
+                let $productItem = $group.find('.wcb-product-item[data-product-id="' + prodId + '"]');
+                
+                // Fallback: cerca input con quel valore se data-attribute fallisce
+                if (!$productItem.length) {
+                    const $input = $group.find('input[value="' + prodId + '"]');
+                    if($input.length) {
+                        $productItem = $input.closest('.wcb-product-item');
+                    }
+                }
+
+                if ($productItem.length) {
+                    const qty = items.length;
+
+                    // 1. Checkbox/Radio
+                    const $checkbox = $productItem.find('input[type="checkbox"], input[type="radio"]');
+                    if ($checkbox.length) {
+                        $checkbox.prop('checked', true).trigger('change');
+                        
+                        if (items[0].is_variation) {
+                            waitForAndPopulate($productItem.find('.wcb-variation-container'), items[0].attributes);
+                        }
+                    }
+                    
+                    // 2. Quantità Input
+                    const $qtyInput = $productItem.find('.wcb-quantity-input');
+                    if ($qtyInput.length) {
+                        // FORZA l'evento input per generare l'HTML
+                        // Usiamo setTimeout per disaccoppiare dall'evento di caricamento
+                        setTimeout(function() {
+                            $qtyInput.val(qty).trigger('change').trigger('input'); 
+                        }, 100);
+
+                        if (items[0].is_variation) {
+                            // POLLING SPECIFICO PER I SET
+                            // Aspettiamo che il numero di .wcb-variation-set corrisponda alla quantità
+                            const populateSets = (retry = 0) => {
+                                const $sets = $productItem.find('.wcb-variation-set');
+                                if ($sets.length < qty && retry < 15) {
+                                    setTimeout(() => populateSets(retry + 1), 200);
+                                    return;
+                                }
+                                
+                                $sets.each(function(index) {
+                                    if (items[index]) {
+                                        // Passiamo l'elemento DOM specifico del set
+                                        waitForAndPopulate($(this), items[index].attributes);
+                                        if (items[index].personalization) {
+                                            $(this).find('.wcb-personalization-input').val(items[index].personalization);
+                                        }
+                                    }
+                                });
+                            };
+                            // Avvia il polling dopo aver settato la quantità
+                            setTimeout(populateSets, 200);
+                        }
+                    }
+                    
+                    // 3. Personalizzazione Semplice
+                    if (items[0].personalization && !$qtyInput.length) {
+                        setTimeout(function(){
+                           $productItem.find('.wcb-personalization-input').val(items[0].personalization).trigger('input');
+                        }, 100);
+                    }
+                }
+            });
+        });
+        
+        // Controllo finale stato dopo un tempo di sicurezza
+        setTimeout(updateBundleState, 1500);
+    }
+    
+    // Inizializza edit mode alla fine
+    initEditMode();
+    initLightbox();
 });
 
 function openLightbox(imageUrl, caption) {
@@ -484,8 +689,7 @@ function openLightbox(imageUrl, caption) {
     
     $lightboxImage.attr('src', imageUrl);
     $lightboxCaption.text(caption);
-
-    // MODIFICA: Cambia direttamente lo stile display invece di usare classi
+    
     $lightbox.css('display', 'flex').hide().fadeIn(300);
     $lightbox.css('opacity', '1');
     $lightbox.addClass("show");
@@ -494,14 +698,11 @@ function openLightbox(imageUrl, caption) {
 
 function closeLightbox() {
     const $lightbox = jQuery('#wcb-lightbox');
-    
-    // MODIFICA: Nascondi con animazione e poi reimposta display: none
     $lightbox.fadeOut(300, function() {
         jQuery(this).css('display', 'none');
         $lightbox.removeClass("show");
     });
     jQuery('body').css('overflow', '');
-    
     setTimeout(() => {
         $lightbox.find('.wcb-lightbox-image').attr('src', '');
         $lightbox.find('.wcb-lightbox-caption').text('');
@@ -512,7 +713,6 @@ function initLightbox() {
     const $bundleForm = jQuery('.wcb-bundle-form');
     if ($bundleForm.length === 0) return;
     
-    // Apri lightbox al click sull'immagine
     $bundleForm.on('click', '.wcb-thumbnail-image', function(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -524,28 +724,19 @@ function initLightbox() {
         openLightbox(imageUrl, productName);
     });
     
-    // Chiudi lightbox
     jQuery(document).on('click', '.wcb-lightbox-close, .wcb-lightbox', function(e) {
         if (e.target === this || jQuery(e.target).hasClass('wcb-lightbox-close')) {
             closeLightbox();
         }
     });
     
-    // Previeni la chiusura quando si clicca sull'immagine
     jQuery(document).on('click', '.wcb-lightbox-image', function(e) {
         e.stopPropagation();
     });
     
-    // Chiudi con ESC
     jQuery(document).on('keyup', function(e) {
         if (e.key === 'Escape') {
             closeLightbox();
         }
     });
 }
-
-function closeLightbox() {
-    jQuery('#wcb-lightbox').fadeOut(300);
-    jQuery('body').removeClass('wcb-lightbox-open');
-}
-

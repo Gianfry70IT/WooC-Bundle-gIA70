@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WooC Bundle gIA70
  * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           2.1.0
+ * Version:           2.2.4
  * Author:            gIA70 - Gianfranco Greco
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -16,6 +16,8 @@
 if ( ! defined( 'ABSPATH' ) ) {
     exit; 
 }
+
+// --- INIZIO BLOCCO CONTROLLO DIPENDENZE ---
 
 add_action( 'admin_init', 'wcb_dependency_check_on_plugins_page' );
 
@@ -64,6 +66,9 @@ function wcb_admin_notice_if_wc_deactivated() {
     }
 }
 add_action( 'admin_notices', 'wcb_admin_notice_if_wc_deactivated' );
+
+// --- FINE BLOCCO CONTROLLO DIPENDENZE ---
+
 
 require_once plugin_dir_path( __FILE__ ) . 'updater.php';
 
@@ -117,8 +122,34 @@ final class WC_Custom_Bundle_Framework {
         add_action( 'woocommerce_cart_item_removed', [ $this, 'handle_bundle_item_removed' ], 10, 2 );
         add_action( 'wp_ajax_wcb_get_variation_price', [ $this, 'get_variation_price_handler' ] );
         add_action( 'wp_ajax_nopriv_wcb_get_variation_price', [ $this, 'get_variation_price_handler' ] );
+        
+        add_filter( 'woocommerce_cart_item_name', [ $this, 'add_bundle_info_to_cart_item_name' ], 10, 3 );
     }
     
+    public function add_bundle_info_to_cart_item_name( $product_name, $cart_item, $cart_item_key ) {
+        if ( isset( $cart_item['wcb_bundle_part_of'] ) && isset( $cart_item['wcb_parent_bundle_id'] ) ) {
+            $parent_bundle = wc_get_product( $cart_item['wcb_parent_bundle_id'] );
+            if ( $parent_bundle ) {
+                $bundle_id_attr = esc_attr( $cart_item['wcb_bundle_part_of'] );
+                
+                // MODIFICA: Aggiunto parametro 'v' (version) con time() per forzare il refresh della cache del browser
+                $edit_url = add_query_arg( [
+                    'wcb_edit' => $cart_item['wcb_bundle_part_of'], 
+                    'v'        => time() 
+                ], $parent_bundle->get_permalink() );
+
+                $html = $product_name;
+                $html .= '<div class="wcb-cart-bundle-info" data-wcb-bundle-id="' . $bundle_id_attr . '">';
+                $html .= '<span class="wcb-bundle-label">' . sprintf( __( 'Bundle: %s', 'wcb-framework' ), $parent_bundle->get_name() ) . '</span>';
+                $html .= ' <a href="' . esc_url( $edit_url ) . '" class="wcb-edit-bundle-link">' . __( 'Modifica Bundle', 'wcb-framework' ) . '</a>';
+                $html .= '</div>';
+                
+                return $html;
+            }
+        }
+        return $product_name;
+    }
+
     public function get_variation_price_handler() {
         check_ajax_referer('wcb-add-to-cart-nonce', 'security');
         
@@ -181,6 +212,8 @@ final class WC_Custom_Bundle_Framework {
             wp_send_json_error(['messages' => [__('Prodotto non trovato.', 'wcb-framework')]]);
             return;
         }
+
+        $update_bundle_id = isset($form_data['wcb_update_bundle_id']) ? wc_clean($form_data['wcb_update_bundle_id']) : '';
         
         $bundle_groups = $product->get_meta('_bundle_groups', true);
         if(!is_array($bundle_groups)) $bundle_groups = [];
@@ -288,27 +321,6 @@ final class WC_Custom_Bundle_Framework {
             }
 
             if (!empty($selection_instances) && empty($errors)) {
-                $item_count = count($selection_instances);
-                if ('multiple' === $selection_mode) {
-                    $min = absint($group_config['min_qty']); $max = absint($group_config['max_qty']);
-                    if ($item_count < $min || ($max > 0 && $item_count > $max)) {
-                        $errors[] = $max > 0 ? sprintf(__('Per il gruppo "%1$s", scegli da %2$d a %3$d prodotti (ne hai scelti %4$d).', 'wcb-framework'), $group_config['title'], $min, $max, $item_count) : sprintf(__('Per il gruppo "%1$s", scegli almeno %2$d prodotti (ne hai scelti %3$d).', 'wcb-framework'), $group_config['title'], $min, $item_count);
-                    }
-                } elseif ('quantity' === $selection_mode) {
-                    $total = absint($group_config['total_qty']);
-                    if ($item_count !== $total) {
-                        $errors[] = sprintf(__('Per il gruppo "%1$s", devi scegliere un totale di %2$d articoli (ne hai scelti %3$d).', 'wcb-framework'), $group_config['title'], $total, $item_count);
-                    }
-                } elseif ('multiple_quantity' === $selection_mode) {
-                    $min = absint($group_config['min_qty']);
-                    $max = absint($group_config['max_qty']);
-                    if ($item_count < $min || ($max > 0 && $item_count > $max)) {
-                        $errors[] = $max > 0 ? sprintf(__('Per il gruppo "%1$s", scegli una quantità totale da %2$d a %3$d (ne hai scelti %4$d).', 'wcb-framework'), $group_config['title'], $min, $max, $item_count) : sprintf(__('Per il gruppo "%1$s", scegli una quantità totale di almeno %2$d (ne hai scelti %3$d).', 'wcb-framework'), $group_config['title'], $min, $item_count);
-                    }
-                }
-            }
-
-            if (empty($errors) && !empty($selection_instances)) {
                 $final_selections[$group_index] = $selection_instances;
             }
         }
@@ -318,10 +330,24 @@ final class WC_Custom_Bundle_Framework {
             return;
         }
 
+        // Rimozione Vecchio Bundle: Usiamo l'ID passato dal form
+        if (!empty($update_bundle_id)) {
+            $cart = WC()->cart;
+            foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
+                if (isset($cart_item['wcb_bundle_part_of']) && $cart_item['wcb_bundle_part_of'] === $update_bundle_id) {
+                    $cart->remove_cart_item($cart_item_key);
+                }
+            }
+        }
+
         $add_as_separate = get_post_meta($product_id, '_bundle_add_as_separate_items', true) === 'yes';
 
         if ($add_as_separate) {
-            $bundle_cart_id = uniqid('wcb_');
+            // MODIFICA CRUCIALE: Generiamo SEMPRE un nuovo ID univoco. 
+            // Non riutilizziamo l'ID vecchio. Questo forza il browser e il sistema a trattarlo come un nuovo inserimento,
+            // garantendo che il link di modifica cambi e non venga servita una pagina cachata.
+            $bundle_cart_id = uniqid('wcb_'); 
+            
             $aggregated_items = [];
 
             foreach ($final_selections as $group_selections) {
@@ -350,7 +376,8 @@ final class WC_Custom_Bundle_Framework {
             WC()->cart->add_to_cart($product_id, 1, 0, [], $cart_item_data);
         }
         
-        wp_send_json_success(['cart_url' => wc_get_cart_url(), 'message' => __('Prodotti aggiunti al carrello.', 'wcb-framework')]);
+        $message = !empty($update_bundle_id) ? __('Bundle aggiornato con successo.', 'wcb-framework') : __('Prodotti aggiunti al carrello.', 'wcb-framework');
+        wp_send_json_success(['cart_url' => wc_get_cart_url(), 'message' => $message]);
     }
     
 public function attach_personalization_to_separate_items( $cart_item_data, $product_id, $variation_id ) {
@@ -370,10 +397,8 @@ public function attach_personalization_to_separate_items( $cart_item_data, $prod
                     $child_product = wc_get_product($pid);
                     if (!$child_product) continue;
                     
-                    // Se il prodotto nel form corrisponde a quello che stiamo aggiungendo al carrello
                     if ($child_product->is_type('variable')) {
-                        // Se è variabile, dobbiamo trovare la variante corretta per fare il match
-                        // Questa parte può diventare complessa; per ora ci basiamo sul parent ID
+                        // Logica gestita meglio a livello di carrello
                     } else {
                         if ($pid == $product_id && !empty($personalizations[0])) {
                              $bundle_groups = get_post_meta($bundle_product_id, '_bundle_groups', true);
@@ -485,17 +510,12 @@ public function attach_personalization_to_separate_items( $cart_item_data, $prod
                 <button type="button" class="button" id="expand_all_groups"><?php esc_html_e('Espandi Tutto', 'wcb-framework'); ?></button>
                 <button type="button" class="button" id="collapse_all_groups"><?php esc_html_e('Chiudi Tutto', 'wcb-framework'); ?></button>
             </div>
+        <div style="height:25px;"></div>
+        <div class="wcb-signature">
+            <p><strong>WooC Bundle gIA70</strong> by <em>Gianfranco Greco</em></p>
+        </div>
             <div style="font-size:2em;font-weight:600;padding:10px;"><?php esc_html_e('Gruppi del Bundle', 'wcb-framework'); ?> <span class="description">(<?php esc_html_e('Trascina per riordinare', 'wcb-framework'); ?>)</span></div>
-            <div class="options_group" id="bundle_groups_container">
-            </div>
-            <div class="toolbar">
-                <button type="button" class="button button-primary" id="add_bundle_group"><?php esc_html_e('Aggiungi Gruppo', 'wcb-framework'); ?></button>
-                <button type="button" class="button" id="expand_all_groups"><?php esc_html_e('Espandi Tutto', 'wcb-framework'); ?></button>
-                <button type="button" class="button" id="collapse_all_groups"><?php esc_html_e('Chiudi Tutto', 'wcb-framework'); ?></button>
-            </div>
-            <div class="wcb-signature">
-                <p><strong>WooC Bundle gIA70</strong> by <em>Gianfranco Greco</em></p>
-            </div>
+            <div class="options_group" id="bundle_groups_container"></div>
         </div>
         <?php
     }
@@ -539,6 +559,51 @@ public function attach_personalization_to_separate_items( $cart_item_data, $prod
             wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.0.3', true);
     
             $product_id = get_the_id();
+            
+            $edit_config = null;
+            $edit_bundle_id = null;
+            $enriched_config = [];
+
+            if (isset($_GET['wcb_edit']) && !empty($_GET['wcb_edit'])) {
+                $edit_bundle_id = sanitize_text_field($_GET['wcb_edit']);
+                $cart = WC()->cart->get_cart();
+                foreach ($cart as $key => $item) {
+                    if (isset($item['wcb_bundle_part_of']) && $item['wcb_bundle_part_of'] === $edit_bundle_id) {
+                        if (isset($item['wcb_bundle_configuration'])) {
+                            $edit_config = $item['wcb_bundle_configuration'];
+                            break; 
+                        }
+                    }
+                }
+
+                if ($edit_config) {
+                    foreach ($edit_config as $group_idx => $group_selections) {
+                        foreach ($group_selections as $selection) {
+                            $item_id = $selection['item_id'];
+                            $product = wc_get_product($item_id);
+                            
+                            $item_data = $selection;
+                            
+                            if ($product && $product->is_type('variation')) {
+                                $item_data['is_variation'] = true;
+                                $item_data['parent_id'] = $product->get_parent_id();
+                                
+                                $attributes = [];
+                                foreach ( $product->get_attributes() as $name => $value ) {
+                                    $key = 'attribute_' . sanitize_title( $name );
+                                    $attributes[ $key ] = $value;
+                                }
+                                $item_data['attributes'] = $attributes; 
+                            } else {
+                                $item_data['is_variation'] = false;
+                                $item_data['parent_id'] = $item_id;
+                            }
+                            $enriched_config[$group_idx][] = $item_data;
+                        }
+                    }
+                }
+            }
+
             $pricing_data = [
                 'type'                  => get_post_meta($product_id, '_bundle_pricing_type', true),
                 'fixed_price'           => wc_get_price_to_display(wc_get_product($product_id)),
@@ -553,7 +618,26 @@ public function attach_personalization_to_separate_items( $cart_item_data, $prod
             wp_localize_script('wcb-frontend-script', 'wcb_params', [
                 'ajax_url' => admin_url('admin-ajax.php'), 
                 'nonce' => wp_create_nonce('wcb-add-to-cart-nonce'),
-                'pricing' => $pricing_data
+                'pricing' => $pricing_data,
+                'edit_mode' => [
+                    'active' => !empty($edit_config),
+                    'bundle_id' => $edit_bundle_id,
+                    'config' => $enriched_config 
+                ],
+                'i18n' => [
+                    'confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework'),
+                    'update_bundle_btn' => __('Aggiorna Bundle', 'wcb-framework')
+                ]
+            ]);
+        }
+        
+        if (is_cart()) {
+             wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.0.3');
+             wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.0.3', true);
+             wp_localize_script('wcb-frontend-script', 'wcb_params', [
+                'i18n' => [
+                    'confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework'),
+                ]
             ]);
         }
     }
@@ -576,6 +660,7 @@ public function attach_personalization_to_separate_items( $cart_item_data, $prod
                     'personalization_enabled'  => isset($group['personalization_enabled']) ? 'yes' : 'no',
                     'personalization_label'    => sanitize_text_field($group['personalization_label'] ?? ''),
                     'personalization_required' => isset($group['personalization_required']) ? 'yes' : 'no',
+                    'price_override'           => wc_format_decimal($group['price_override'] ?? ''), 
                 ];
             }
             update_post_meta($post_id, '_bundle_groups', $groups_data);
@@ -822,6 +907,7 @@ public function attach_personalization_to_separate_items( $cart_item_data, $prod
             
             $parent_bundle_id = $first_item['wcb_parent_bundle_id'];
             $bundle_recipe = $first_item['wcb_bundle_configuration'];
+            $bundle_groups = get_post_meta($parent_bundle_id, '_bundle_groups', true); 
 
             $expected_items = [];
             foreach ($bundle_recipe as $group_selections) {
@@ -839,40 +925,60 @@ public function attach_personalization_to_separate_items( $cart_item_data, $prod
 
             if ($expected_items != $actual_items) continue;
 
-            $pricing_type = get_post_meta($parent_bundle_id, '_bundle_pricing_type', true);
-            $bundle_final_price = 0;
-            $original_subtotal = 0;
-            foreach ($items as $item) {
-                $original_product = wc_get_product($item['data']->get_id());
-                if($original_product) $original_subtotal += floatval($original_product->get_price()) * $item['quantity'];
+            foreach ($items as $cart_item_key => $cart_item_data) {
+                $product_id = $cart_item_data['data']->get_id();
+                foreach ($bundle_recipe as $group_idx => $selections) {
+                    $found = false;
+                    foreach ($selections as $sel) {
+                        if ($sel['item_id'] == $product_id) {
+                            $found = true;
+                            $group_config = $bundle_groups[$group_idx] ?? [];
+                            if (isset($group_config['price_override']) && $group_config['price_override'] !== '') {
+                                $cart->cart_contents[$cart_item_key]['data']->set_price(floatval($group_config['price_override']));
+                            }
+                            break;
+                        }
+                    }
+                    if ($found) break; 
+                }
             }
+
+            $pricing_type = get_post_meta($parent_bundle_id, '_bundle_pricing_type', true);
+            
+            $current_bundle_subtotal = 0;
+            foreach ($items as $cart_item_key => $item) {
+                 $current_bundle_subtotal += floatval($cart->cart_contents[$cart_item_key]['data']->get_price()) * $item['quantity'];
+            }
+
+            $bundle_final_price = 0;
 
             if ($pricing_type === 'fixed') {
                 $bundle_product = wc_get_product($parent_bundle_id);
                 $bundle_final_price = floatval($bundle_product->get_price());
-            } else { // 'calculated'
-                $subtotal = $original_subtotal;
+                
+                if ($current_bundle_subtotal > 0) {
+                    $discount_ratio = $bundle_final_price / $current_bundle_subtotal;
+                    foreach ($items as $key => $item) {
+                        $current_price = floatval($cart->cart_contents[$key]['data']->get_price());
+                        $cart->cart_contents[$key]['data']->set_price($current_price * $discount_ratio);
+                    }
+                }
+            } else { 
                 $discount_percentage = floatval(get_post_meta($parent_bundle_id, '_bundle_discount_percentage', true));
                 $discount_amount = floatval(get_post_meta($parent_bundle_id, '_bundle_discount_amount', true));
+                
+                $subtotal = $current_bundle_subtotal;
+                
                 if ($discount_percentage > 0) $subtotal *= (1 - ($discount_percentage / 100));
                 if ($discount_amount > 0) $subtotal -= $discount_amount;
                 $bundle_final_price = max(0, $subtotal);
-            }
-            
-            if ($original_subtotal > 0) {
-                $discount_ratio = $bundle_final_price / $original_subtotal;
-                foreach ($items as $key => $item) {
-                    $original_product = wc_get_product($item['data']->get_id());
-                    if($original_product) {
-                        $new_price = floatval($original_product->get_price()) * $discount_ratio;
-                        $cart->cart_contents[$key]['data']->set_price($new_price);
+
+                if ($current_bundle_subtotal > 0 && $bundle_final_price != $current_bundle_subtotal) {
+                     $discount_ratio = $bundle_final_price / $current_bundle_subtotal;
+                     foreach ($items as $key => $item) {
+                        $current_price = floatval($cart->cart_contents[$key]['data']->get_price());
+                        $cart->cart_contents[$key]['data']->set_price($current_price * $discount_ratio);
                     }
-                }
-            } elseif ($bundle_final_price > 0 && count($actual_items) > 0) {
-                $total_quantity = array_sum($actual_items);
-                if($total_quantity > 0){
-                    $per_item_price = $bundle_final_price / $total_quantity;
-                    foreach ($items as $key => $item) $cart->cart_contents[$key]['data']->set_price($per_item_price);
                 }
             }
         }
@@ -881,12 +987,22 @@ public function attach_personalization_to_separate_items( $cart_item_data, $prod
             if ('custom_bundle' === $cart_item['data']->get_type() && !empty($cart_item['wcb_bundle_selections'])) {
                 $product_id = $cart_item['product_id'];
                 $pricing_type = get_post_meta($product_id, '_bundle_pricing_type', true);
+                
                 if ('calculated' === $pricing_type) {
                     $calculated_price = 0;
-                    foreach ($cart_item['wcb_bundle_selections'] as $group_selections) {
+                    $bundle_groups = get_post_meta($product_id, '_bundle_groups', true);
+                    
+                    foreach ($cart_item['wcb_bundle_selections'] as $group_index => $group_selections) {
+                        $group_config = $bundle_groups[$group_index] ?? [];
+                        $price_override = isset($group_config['price_override']) && $group_config['price_override'] !== '' ? floatval($group_config['price_override']) : null;
+
                         foreach ($group_selections as $selection) {
-                            $child_product = wc_get_product($selection['item_id']);
-                            if ($child_product) $calculated_price += floatval($child_product->get_price());
+                            if ($price_override !== null) {
+                                $calculated_price += $price_override;
+                            } else {
+                                $child_product = wc_get_product($selection['item_id']);
+                                if ($child_product) $calculated_price += floatval($child_product->get_price());
+                            }
                         }
                     }
                     $discount_percentage = floatval(get_post_meta($product_id, '_bundle_discount_percentage', true));
@@ -905,4 +1021,3 @@ public function attach_personalization_to_separate_items( $cart_item_data, $prod
     }
 }
 WC_Custom_Bundle_Framework::get_instance();
-

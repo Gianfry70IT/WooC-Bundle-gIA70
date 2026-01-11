@@ -37,6 +37,8 @@ global $product;
             $personalization_enabled = ($group['personalization_enabled'] ?? 'no') === 'yes';
             $personalization_label = $group['personalization_label'] ?? __('Testo Personalizzato', 'wcb-framework');
             $personalization_required = ($group['personalization_required'] ?? 'no') === 'yes';
+            // MODIFICA: Recupero price_override
+            $price_override = isset($group['price_override']) && $group['price_override'] !== '' ? floatval($group['price_override']) : null;
             ?>
             <div class="wcb-bundle-group" 
                  data-group-index="<?php echo esc_attr( $group_index ); ?>" 
@@ -49,6 +51,7 @@ global $product;
                 <h3 class="wcb-group-title"><?php echo esc_html( $group['title'] ); ?></h3>
                 <div class="wcb-group-description">
                     <?php
+                        // Miglioramento Opzionale per mostrare le regole del gruppo
                         $rules = [];
                         if ($is_required) {
                             $rules[] = __('Selezione obbligatoria', 'wcb-framework');
@@ -101,9 +104,16 @@ global $product;
                             $image_id = $child_product->get_image_id();
                             $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
                             $full_image_url = $image_id ? wp_get_attachment_image_url($image_id, 'full') : wc_placeholder_img_src('full');
+                            
+                            // MODIFICA: Logica display prezzo
+                            $price_html = $child_product->get_price_html();
+                            if ($price_override !== null) {
+                                $price_html = wc_price($price_override);
+                            }
                             ?>
                             <div class="wcb-product-item" 
                                 data-product-id="<?php echo esc_attr($product_id); ?>"
+                                <?php if($price_override !== null) echo 'data-price-override="' . esc_attr($price_override) . '"'; ?>
                                 <?php if(!empty($variation_data)) echo "data-variation-data='" . esc_attr(json_encode(array_values($variation_data))) . "'"; ?>
                                 <?php if($personalization_enabled && $personalization_required) echo 'data-personalization-required="true"'; ?>>
         
@@ -123,7 +133,7 @@ global $product;
                                     
                                     <div class="wcb-product-info">
                                         <span class="wcb-product-name"><?php echo esc_html( $child_product->get_name() ); ?></span>
-                                        <span class="wcb-product-price"><?php echo $child_product->get_price_html(); ?></span>
+                                        <span class="wcb-product-price"><?php echo $price_html; ?></span>
                                     </div>
                                     
                                     <?php if ( in_array( $selection_mode, ['quantity', 'multiple_quantity'] ) ) : ?>
@@ -131,6 +141,7 @@ global $product;
                                     <?php endif; ?>
                                 </label>
                                 
+                                <?php // Campo di personalizzazione per modalità Scelta Singola/Multipla ?>
                                 <?php if ($personalization_enabled && in_array($selection_mode, ['single', 'multiple'])) : ?>
                                     <div class="wcb-personalization-field-container" style="display:none;">
                                         <label><?php echo esc_html($personalization_label); ?><?php if ($personalization_required) echo ' <span class="required">*</span>'; ?></label>
@@ -138,15 +149,21 @@ global $product;
                                     </div>
                                 <?php endif; ?>
 
+                                <?php // Contenitore per i set generati dal JS in modalità Quantità ?>
+                                <?php if ($child_product->is_type('variable')) : ?>
                                 <div class="wcb-variation-sets-container" style="display:none;"></div>
+                                <?php endif; ?>
 
+                                <?php // Contenitore dei "template" usati dal JS ?>
                                 <div class="wcb-templates" style="display:none;">
+                                    <?php // Template per le varianti (solo se il prodotto è variabile) ?>
                                     <?php if ($child_product->is_type('variable')) : ?>
                                         <div class="wcb-variation-fields-template"><?php foreach ( $child_product->get_variation_attributes() as $attribute_name => $options ) : ?>
                                             <div class="wcb-variation-field"><label><?php echo wc_attribute_label( $attribute_name ); ?>:</label><select class="wcb-variation-select" name="wcb_variation_sets[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>][__INDEX__][attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>]" data-attribute-name="attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>" disabled><option value=""><?php _e('Scegli un\'opzione', 'wcb-framework'); ?></option><?php foreach ( $options as $option ) : ?><option value="<?php echo esc_attr( $option ); ?>"><?php echo esc_html( $option ); ?></option><?php endforeach; ?></select></div>
                                         <?php endforeach; ?></div>
                                     <?php endif; ?>
                                     
+                                    <?php // Template per la personalizzazione (sempre, se abilitata) ?>
                                     <?php if ($personalization_enabled) : ?>
                                         <div class="wcb-personalization-field-template">
                                             <div class="wcb-personalization-field"><label><?php echo esc_html($personalization_label); ?><?php if ($personalization_required) echo ' <span class="required">*</span>'; ?></label><input type="text" class="wcb-personalization-input" name="wcb_personalization[<?php echo esc_attr($group_index); ?>][<?php echo esc_attr($product_id); ?>][__INDEX__]"></div>
@@ -154,6 +171,7 @@ global $product;
                                     <?php endif; ?>
                                 </div>
 
+                                <?php // Campi delle varianti per modalità Scelta Singola/Multipla ?>
                                 <?php if ( $child_product->is_type( 'variable' ) ) : ?>
                                     <div class="wcb-variation-container" style="display:none;">
                                         <?php foreach ( $child_product->get_variation_attributes() as $attribute_name => $options ) : ?>
@@ -172,7 +190,7 @@ global $product;
                                     </div>
                                 <?php endif; ?>
 
-                            </div> 
+                            </div> <?php // Chiusura di .wcb-product-item ?>
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
