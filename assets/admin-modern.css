@@ -1,0 +1,162 @@
+/* Tema Moderno WooC Bundle v2.4.0 */
+body.wcb-modern-theme {
+    --wcb-primary: #4361ee;
+    --wcb-secondary: #3a0ca3;
+    --wcb-accent: #4cc9f0;
+    --wcb-success: #4ade80;
+    --wcb-danger: #f43f5e;
+    --wcb-warning: #f59e0b;
+}
+
+/* Card Moderna */
+body.wcb-modern-theme .bundle-group {
+    border: none;
+    border-radius: 16px;
+    background: white;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    margin-bottom: 24px;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body.wcb-modern-theme .bundle-group:hover {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    transform: translateY(-4px);
+}
+
+/* Header Card */
+body.wcb-modern-theme .group-header {
+    background: linear-gradient(135deg, var(--wcb-primary), var(--wcb-secondary));
+    color: white;
+    padding: 20px 25px;
+    border-bottom: none;
+}
+
+body.wcb-modern-theme .group-title {
+    color: white;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* Badges */
+body.wcb-modern-theme .wcb-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-left: 10px;
+}
+
+body.wcb-modern-theme .badge-required {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+body.wcb-modern-theme .badge-optional {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Toggle Modalità */
+body.wcb-modern-theme .mode-toggle {
+    display: flex;
+    gap: 4px;
+    background: #f1f3f9;
+    border-radius: 12px;
+    padding: 4px;
+    width: fit-content;
+    margin-top: 8px;
+}
+
+body.wcb-modern-theme .mode-toggle-btn {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #64748b;
+}
+
+body.wcb-modern-theme .mode-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.8);
+}
+
+body.wcb-modern-theme .mode-toggle-btn.active {
+    background: white;
+    color: var(--wcb-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Input Moderni */
+body.wcb-modern-theme input[type="text"],
+body.wcb-modern-theme input[type="number"],
+body.wcb-modern-theme select {
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+body.wcb-modern-theme input:focus,
+body.wcb-modern-theme select:focus {
+    border-color: var(--wcb-primary);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+    outline: none;
+}
+
+/* Tabella Prodotti Moderna */
+body.wcb-modern-theme .wcb-product-setting-row {
+    border-radius: 12px;
+    margin: 8px 0;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+body.wcb-modern-theme .wcb-product-setting-row:hover {
+    border-color: var(--wcb-primary);
+    background: rgba(67, 97, 238, 0.02);
+}
+
+/* Toolbar Moderna */
+body.wcb-modern-theme .toolbar {
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    border-radius: 16px;
+    border: 2px solid #e2e8f0;
+}
+
+body.wcb-modern-theme .toolbar button {
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 12px 24px;
+    border: 2px solid transparent;
+}
+
+body.wcb-modern-theme .toolbar button#add_bundle_group {
+    background: linear-gradient(135deg, var(--wcb-primary), var(--wcb-secondary));
+    color: white;
+    border: none;
+}
+
+body.wcb-modern-theme .toolbar button#add_bundle_group:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(67, 97, 238, 0.3);
+}
+
+/* Animazioni */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+body.wcb-modern-theme .bundle-group .group-content {
+    animation: fadeIn 0.3s ease-out;
+}

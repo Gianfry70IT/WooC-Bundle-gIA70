@@ -1,11 +1,12 @@
-/* * assets/admin.css - Versione Modernizzata
+/*
+ * asset/admin.css - Versione 2.3.6
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
 */
 
 :root {
-  --wcb-primary:#3858e9;
+  --wcb-primary: #3858e9;
   --wcb-primary-hover: #2941c5;
   --wcb-secondary: #6c757d;
   --wcb-success: #46b450;
@@ -14,18 +15,22 @@
   --wcb-info: #17a2b8;
   --wcb-light: #f8f9fa;
   --wcb-dark: #343a40;
-  --wcb-border-radius: 8px;
-  --wcb-box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --wcb-border: #c3c4c7;
+  --wcb-radius: 8px;
+  --wcb-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
   --wcb-transition: all 0.3s ease;
 }
 
+/* ==========================================================================
+   1. STILI GENERALI GRUPPI & CONTENITORI
+   ========================================================================== */
 .bundle-group {
   border: 1px solid #e0e0e0;
   margin-bottom: 20px;
   background: #fff;
-  border-radius: var(--wcb-border-radius);
-  overflow: hidden;
-  box-shadow: var(--wcb-box-shadow);
+  border-radius: var(--wcb-radius);
+  overflow: visible; /* Necessario per Select2 dropdown */
+  box-shadow: var(--wcb-shadow);
   transition: var(--wcb-transition);
 }
 
@@ -37,12 +42,14 @@
 .bundle-group .group-header {
   display: flex;
   align-items: center;
-  padding: 15px;
+  justify-content: space-between;
+  padding: 25px;
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
   border-bottom: 1px solid #e0e0e0;
   position: relative;
   cursor: pointer;
   transition: var(--wcb-transition);
+  border-radius: 10px;
 }
 
 .bundle-group .group-header:hover {
@@ -58,191 +65,14 @@
   color: var(--wcb-dark);
 }
 
-.bundle-group .sort-handle {
-  cursor: move;
-  color: var(--wcb-secondary);
-  font-size: 20px;
-  padding-right: 15px;
-  transition: var(--wcb-transition);
-}
-
-.bundle-group .sort-handle:hover {
-  color: var(--wcb-primary);
-}
-
-.bundle-group .remove-group {
-  margin-left: auto;
-  color: var(--wcb-danger);
-  border: 1px solid var(--wcb-danger);
-  background: transparent;
-  border-radius: var(--wcb-border-radius);
-  padding: 8px 15px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: var(--wcb-transition);
-}
-
-.bundle-group .remove-group:hover {
-  background: var(--wcb-danger);
-  color: #fff;
-  transform: scale(1.05);
-}
-
-.bundle-group .group-content {
-  padding: 20px;
-  background: #fff;
-}
-
-.bundle-group .form-field {
-  margin-bottom: 20px;
-}
-
-.bundle-group .form-field label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--wcb-dark);
-}
-
-.bundle-group .form-field input[type=text],
-.bundle-group .form-field input[type=number],
-.bundle-group .form-field select,
-.bundle-group .form-field textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: var(--wcb-border-radius);
-  box-sizing: border-box;
-  font-size: 14px;
-  transition: var(--wcb-transition);
-  background: #fff;
-}
-
-.bundle-group .form-field input[type=text]:focus,
-.bundle-group .form-field input[type=number]:focus,
-.bundle-group .form-field select:focus,
-.bundle-group .form-field textarea:focus {
-  border-color: var(--wcb-primary);
-  box-shadow: 0 0 0 3px rgba(56, 88, 233, 0.1);
-  outline: none;
-}
-
-.bundle-group .form-field.half-width {
-  width: 48%;
-  display: inline-block;
-  vertical-align: top;
-  margin-right: 4%;
-}
-
-.bundle-group .form-field.half-width:last-child {
-  margin-right: 0;
-}
-
-.bundle-group .rule-quantity {
-  display: none;
-}
-
-.bundle-group hr {
-  margin: 25px 0;
-  border: none;
-  border-top: 1px solid #eee;
-}
-
-#bundle_groups_container h2 {
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 2px solid #e0e0e0;
-  color: var(--wcb-dark);
-  font-weight: 600;
-  font-size: 1.5em;
-}
-
-.bundle_price_field_wrapper {
-  display: none;
-}
-
-.toolbar {
-  margin:0;
-  padding: 20px;
-  /*border: 1px solid #eee;*/
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.toolbar button {
-  border-radius: var(--wcb-border-radius);
-  padding: 10px 20px;
-  font-weight: 500;
-  transition: var(--wcb-transition);
-  border: 1px solid transparent;
-}
-
-.toolbar button:hover {
-  transform: translateY(-2px);
-}
-
-.toolbar button#add_bundle_group {
-  background: var(--wcb-primary);
-  color: white;
-  border-color: var(--wcb-primary);
-  padding: 10px 20px;
-}
-
-.toolbar button#add_bundle_group:hover {
-  background: var(--wcb-primary-hover);
-  border-color: var(--wcb-primary-hover);
-}
-
-.toolbar button#expand_all_groups,
-.toolbar button#collapse_all_groups {
-  background: #fff;
-  color: var(--wcb-secondary);
-  border-color: var(--wcb-secondary);
-}
-
-.toolbar button#expand_all_groups:hover,
-.toolbar button#collapse_all_groups:hover {
-  background: var(--wcb-secondary);
-  color: white;
-}
-
-#woocommerce-product-data {
-  position: relative !important;
-}
-
-.wcb-signature {
-  display: none;
-  position: absolute;
-  bottom: 10px;
-  right: 20px;
-  z-index: 10;
-  color: #fff;
-  background: linear-gradient(135deg, var(--wcb-primary) 0%, var(--wcb-primary-hover) 100%);
-  padding: 10px 15px;
-  border-radius: var(--wcb-border-radius);
-  box-shadow: var(--wcb-box-shadow);
-  font-size: 12px;
-}
-
-.wcb-signature p {
-  margin: 0;
-  font-style: italic;
-  color: #fff;
-}
-
-.wcb-signature p strong {
-  font-style: normal;
-  font-weight: 600;
-}
-
+/* Icona Accordion (Triangolino) */
 .bundle-group .group-header::after {
   content: '▲';
   position: absolute;
-  right: 70px;
+  right: 70px; /* Lascia spazio al bottone rimuovi */
   top: 50%;
   transform: translateY(-50%);
-  font-size: 14px;
+  font-size: 12px;
   color: var(--wcb-secondary);
   transition: transform 0.3s ease;
 }
@@ -255,188 +85,419 @@
   display: none;
 }
 
-.select2-container--default .select2-selection--multiple {
-  border-radius: var(--wcb-border-radius);
-  min-height: 42px;
-  border: 1px solid #ddd;
+.sort-handle {
+  cursor: move;
+  color: var(--wcb-secondary);
+  font-size: 20px;
+  padding-right: 15px;
   transition: var(--wcb-transition);
 }
 
-.select2-container--default .select2-selection--multiple:focus {
-  border-color: var(--wcb-primary);
-  box-shadow: 0 0 0 3px rgba(56, 88, 233, 0.1);
-}
+.sort-handle:hover { color: var(--wcb-primary); }
 
-.select2-product-image {
-  width: 32px;
-  height: 32px;
-  margin-right: 10px;
-  vertical-align: middle;
-  border-radius: 4px;
-  object-fit: cover;
-}
-
-.select2-result-product__image {
-  float: left;
-  margin-right: 10px;
-}
-
-.select2-result-product__image img {
-  width: 40px;
-  height: 40px;
-  border-radius: 4px;
-  object-fit: cover;
-}
-
-.select2-result-product__meta {
-  margin-left: 50px;
-}
-
-.select2-result-product__title {
-  color: var(--wcb-dark);
-  font-weight: 600;
-}
-
-.select2-container--default .select2-selection--multiple .select2-selection__choice {
-  display: none !important;
-}
-
-.wcb-product-gallery-container {
-  margin-top: 15px;
-  padding: 15px;
-  background-color: #f8f9fa;
-  border: 1px solid #e0e0e0;
-  border-radius: var(--wcb-border-radius);
-  min-height: 110px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.07);
-}
-
-.wcb-product-gallery {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
-.wcb-gallery-item {
-  position: relative;
-  width: 80px;
-  text-align: center;
-}
-
-.wcb-gallery-item img {
-  width: 100%;
-  height: 80px;
-  object-fit: cover;
-  border-radius: var(--wcb-border-radius);
-  border: 2px solid #ccc;
+.remove-group {
+  margin-left: auto;
+  color: var(--wcb-danger);
+  border: 1px solid var(--wcb-danger);
+  background: transparent;
+  border-radius: var(--wcb-radius);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 500;
   transition: var(--wcb-transition);
+  z-index: 5;
 }
 
-.wcb-gallery-item:hover img {
-  border-color: var(--wcb-primary);
+.remove-group:hover {
+  background: var(--wcb-danger);
+  color: #fff;
   transform: scale(1.05);
 }
 
-.wcb-remove-product {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background: var(--wcb-danger);
-  color: #fff;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  line-height: 20px;
-  text-align: center;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  z-index: 1;
-  padding: 0;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+.group-content {
+  padding: 20px;
+  background: #fff;
+  border-radius: 10px;
+}
+
+/* ==========================================================================
+   2. INPUT STANDARD & FORM FIELDS
+   ========================================================================== */
+.bundle-group .form-field { margin-bottom: 20px; }
+
+.bundle-group .form-field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--wcb-dark);
+}
+
+/* Reset stili input WordPress per evitare overflow */
+.bundle-group input[type=text],
+.bundle-group input[type=number],
+.bundle-group select,
+.bundle-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: var(--wcb-radius);
+  box-sizing: border-box;
+  font-size: 14px;
   transition: var(--wcb-transition);
-  opacity: 0;
-  transform: scale(0.8);
+  background: #fff;
+  min-height: 40px;
+  color: #333;
 }
 
-.wcb-gallery-item:hover .wcb-remove-product {
-  opacity: 1;
-  transform: scale(1);
+.bundle-group input:focus,
+.bundle-group select:focus {
+  border-color: var(--wcb-primary);
+  box-shadow: 0 0 0 3px rgba(56, 88, 233, 0.1);
+  outline: none;
 }
 
-.wcb-remove-product:hover {
-  background: #c00;
-  transform: scale(1.1) !important;
+.bundle-group .form-field.half-width {
+  width: 48%;
+  display: inline-block;
+  vertical-align: top;
+  margin-right: 4%;
 }
+.bundle-group .form-field.half-width:last-child { margin-right: 0; }
 
-.bundle-group input[type="checkbox"],
+.bundle-group input[type="checkbox"], 
 .bundle-group input[type="radio"] {
   width: 18px;
   height: 18px;
   margin-right: 8px;
+  vertical-align: sub;
 }
 
+
+    .label-aggiungi-prodotti {
+        float: none !important;
+        display: block !important;
+        /* text-align: center; */
+        width: calc(100% - 20px) !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        font-weight: 600 !important;
+        background-color: #fafafa;
+        box-shadow: 0 2px 2px rgba(0, 0, 0, 0.5);
+        border-radius: 8px 8px 0 0;
+    }
+
+/* ==========================================================================
+   3. SELECT2 CUSTOMIZATION
+   ========================================================================== */
+.select2-container--default .select2-selection--multiple {
+  border-radius: var(--wcb-radius);
+  min-height: 42px;
+  border: 1px solid #ddd;
+  padding: 5px;
+}
+.select2-container--default .select2-selection--multiple:focus {
+  border-color: var(--wcb-primary);
+  box-shadow: 0 0 0 3px rgba(56, 88, 233, 0.1);
+}
+.select2-result-product__image { float: left; margin-right: 10px; }
+.select2-result-product__image img { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; }
+.select2-result-product__meta { margin-left: 50px; line-height: 40px; }
+.select2-result-product__title { color: var(--wcb-dark); font-weight: 600; }
+.select2-container--default .select2-selection--multiple .select2-selection__choice { display: none !important; }
+
+/* ==========================================================================
+   4. TABELLA CONFIGURAZIONE PRODOTTI (LAYOUT FIX)
+   ========================================================================== */
+.wcb-products-section {
+    border: 1px solid #c3c4c7;
+    border-radius: var(--wcb-radius);
+    background: #fff;
+    margin: 15px 0;
+    overflow: visible;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.wcb-products-section > .select2-container {
+    margin: 15px;
+    width: calc(100% - 30px) !important;
+}
+
+.wcb-product-settings-list {
+    border-top: 1px solid #f0f0f1;
+}
+
+/* RIGA PRODOTTO SINGOLO */
+.wcb-product-setting-row {
+    display: flex;
+    flex-wrap: nowrap; /* Impedisce a capo */
+    align-items: center; /* Allinea verticalmente */
+    padding: 12px 15px;
+    border-bottom: 1px solid #f0f0f1;
+    background: #fff;
+    gap: 15px;
+}
+
+.wcb-product-setting-row:nth-child(even) { background-color: #fafafa; }
+.wcb-product-setting-row:last-child { border-bottom: none; }
+
+/* Thumbnail */
+.wcb-row-thumb {
+    flex: 0 0 45px; /* Fisso */
+}
+.wcb-row-thumb img {
+    width: 45px; height: 45px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; display: block;
+}
+
+/* Nome Prodotto */
+.wcb-row-name {
+    flex: 1 1 auto; /* Prende lo spazio disponibile */
+    min-width: 0; /* Permette al testo di accorciarsi */
+    padding-right: 10px;
+}
+.wcb-row-name strong { 
+    display: block; 
+    font-size: 13px; 
+    line-height: 1.3; 
+    margin-bottom: 2px;
+    color: var(--wcb-dark);
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; /* Aggiunge ... */
+}
+.wcb-row-name small { font-size: 11px; color: #888; }
+
+/* CONTENITORE INPUT (Min, Step, Price) */
+.wcb-row-inputs {
+    flex: 0 0 auto; /* Non si restringe MAI */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Forza la visibilità degli elementi in base alla modalità */
+.bundle-group .wcb-row-inputs {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* Quando la modalità è 'single' o 'multiple', nascondi completamente Min e Step */
+.bundle-group[data-mode="single"] .wcb-setting-min,
+.bundle-group[data-mode="single"] .wcb-setting-step,
+.bundle-group[data-mode="multiple"] .wcb-setting-min,
+.bundle-group[data-mode="multiple"] .wcb-setting-step {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    opacity: 0 !important;
+    position: absolute !important;
+}
+
+/* Quando la modalità è 'quantity' o 'multiple_quantity', mostra tutto */
+.bundle-group[data-mode="quantity"] .wcb-row-inputs,
+.bundle-group[data-mode="multiple_quantity"] .wcb-row-inputs {
+    display: flex;
+}
+
+/* Wrapper Label+Input */
+.wcb-row-inputs label {
+    font-size: 10px !important;
+    text-transform: uppercase;
+    color: var(--wcb-secondary);
+    font-weight: 700 !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Forza l'occulsione completa degli elementi nascosti */
+.wcb-setting-min[style*="display: none"],
+.wcb-setting-step[style*="display: none"] {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+}
+
+/* Quando nascondi label, nascondi anche il loro contenuto */
+.wcb-row-inputs label.wcb-setting-min:not(:visible),
+.wcb-row-inputs label.wcb-setting-step:not(:visible) {
+    display: none !important;
+}
+
+/* Riorganizza gli input visibili quando alcuni sono nascosti */
+.wcb-row-inputs {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+/* Assicurati che gli input mantengano dimensioni minime */
+.wcb-row-inputs .tiny-input,
+.wcb-row-inputs .wc_input_price {
+    min-height: 30px;
+    box-sizing: border-box;
+}
+
+/* Input Specifici - !important per vincere su stili globali */
+.wcb-row-inputs input.tiny-input {
+    width: 60px !important;
+    min-width: 60px !important;
+    height: 30px !important;
+    padding: 0 5px !important;
+    text-align: center;
+    font-size: 12px !important;
+    margin: 0 !important;
+}
+
+.wcb-row-inputs input.wc_input_price {
+    width: 80px !important;
+    min-width: 80px !important;
+    height: 30px !important;
+    padding: 0 5px !important;
+    text-align: right;
+    font-size: 12px !important;
+    margin: 0 !important;
+}
+
+/* Bottone Rimuovi */
+.wcb-row-actions {
+    flex: 0 0 30px;
+    text-align: right;
+}
+.wcb-remove-product-row {
+    color: var(--wcb-danger) !important;
+    border: 1px solid transparent !important;
+    background: transparent !important;
+    width: 24px; height: 24px; line-height: 24px;
+    padding: 0 !important;
+    text-align: center;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.wcb-remove-product-row:hover {
+    background: var(--wcb-danger) !important;
+    color: #fff !important;
+    transform: scale(1.1);
+}
+
+/* ==========================================================================
+   5. REPEATER CAMPI PERSONALIZZAZIONE (TESTO)
+   ========================================================================== */
 .personalization-options {
-  background: #f9f9f9;
-  padding: 15px;
-  border-radius: var(--wcb-border-radius);
-  margin-top: 15px;
-  border-left: 3px solid var(--wcb-primary);
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: var(--wcb-radius);
+    margin-top: 20px;
+    border-left: 4px solid var(--wcb-primary);
 }
 
-@media screen and (max-width: 782px) {
-  .bundle-group .form-field.half-width {
-    width: 100%;
-    margin-right: 0;
+.wcb-field-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 15px;
     margin-bottom: 15px;
-  }
-  
-  .toolbar {
-    flex-direction: column;
-  }
-  
-  .toolbar button {
-    width: 100%;
-    margin-bottom: 10px;
-  }
-  
-  .bundle-group .group-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .bundle-group .group-title {
-    padding: 10px 0;
-  }
-  
-  .bundle-group .remove-group {
-    margin-top: 10px;
-    margin-left: 0;
-  }
+    background: #fff;
+    padding: 15px;
+    border: 1px solid #eee;
+    border-radius: var(--wcb-radius);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
 
-#_bundle_instructions_ifr {
-  border-radius: var(--wcb-border-radius);
-  border: 1px solid #ddd;
+.wcb-field-row div { flex: 1; }
+/* Il contenitore del bottone non deve crescere */
+.wcb-field-row div:last-child { flex: 0 0 auto; width: auto; } 
+
+.wcb-field-row label {
+    font-size: 12px;
+    margin-bottom: 5px;
+    color: #555;
 }
 
-#_bundle_instructions {
-  border-radius: var(--wcb-border-radius);
-  border: 1px solid #ddd;
-  padding: 15px;
+.wcb-remove-field-btn {
+    color: #aaa;
+    font-size: 20px;
+    line-height: 1;
+    padding: 5px 10px;
+}
+.wcb-remove-field-btn:hover { color: var(--wcb-danger); }
+
+/* ==========================================================================
+   6. TOOLBAR & UTILS
+   ========================================================================== */
+.toolbar {
+    margin: 20px 0;
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    padding: 15px;
+    border-top: solid 1px #ddd;
+    border-bottom: solid 1px #ddd;
+    background-color: #f8f9fa;
 }
 
-.mce-top-part::before {
-  box-shadow: none !important;
+.toolbar button {
+    border-radius: var(--wcb-radius);
+    padding: 10px 20px;
+    font-weight: 500;
+    border: 1px solid transparent;
+}
+
+.toolbar button#add_bundle_group {
+    background: var(--wcb-primary);
+    color: white;
+    padding: 15px;
+}
+.toolbar button#add_bundle_group:hover {
+    background: var(--wcb-primary-hover);
+}
+
+/* Signature & Editor */
+.wcb-signature {
+    display: none; 
+    text-align: right;
 }
 
 .wp-editor-container {
-  border: 1px solid #ddd;
-  border-radius: var(--wcb-border-radius);
-  overflow: hidden;
+    border: 1px solid #ddd;
+    border-radius: var(--wcb-radius);
 }
 
-.wp-switch-editor {
-  border-radius: var(--wcb-border-radius) var(--wcb-border-radius) 0 0 !important;
+/* RESPONSIVE */
+@media screen and (max-width: 960px) {
+    /* Su schermi medi/piccoli, permetti il wrap per evitare rotture */
+    .wcb-product-setting-row {
+        flex-wrap: wrap; 
+        padding: 15px;
+    }
+    .wcb-row-thumb { margin-right: 15px; }
+    .wcb-row-name { flex: 1 1 auto; width: auto; margin-bottom: 10px; }
+    
+    .wcb-row-inputs {
+        width: 100%;
+        margin-top: 10px;
+        padding-top: 15px;
+        border-top: 1px dashed #eee;
+        justify-content: space-between;
+    }
+    
+    .wcb-row-actions {
+        position: absolute;
+        top: 15px; right: 15px;
+    }
+    .wcb-product-setting-row { position: relative; }
+    
+    .bundle-group .form-field.half-width {
+        width: 100%;
+        margin-right: 0;
+    }
 }

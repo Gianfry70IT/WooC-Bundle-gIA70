@@ -1,0 +1,369 @@
+/*
+ * asset/frontend-modern.css - Versione 2.4.0
+ * Tema Moderno WooC Bundle gIA70
+ */
+
+/* ==========================================================================
+   VARIABILI TEMA MODERNO
+   ========================================================================== */
+body.wcb-modern-theme {
+    --wcb-m-primary: #4361ee;
+    --wcb-m-secondary: #3a0ca3;
+    --wcb-m-accent: #4cc9f0;
+    --wcb-m-success: #4ade80;
+    --wcb-m-danger: #f43f5e;
+    --wcb-m-warning: #f59e0b;
+    --wcb-m-light: #f8fafc;
+    --wcb-m-dark: #1e293b;
+    --wcb-m-border: #e2e8f0;
+    --wcb-m-radius: 12px;
+    --wcb-m-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    --wcb-m-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==========================================================================
+   1. HERO SECTION MODERNA
+   ========================================================================== */
+body.wcb-modern-theme .wcb-hero-section {
+    height: 450px;
+    border-radius: 0 0 24px 24px;
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 40px;
+    background-size: cover;
+    background-position: center;
+}
+
+body.wcb-modern-theme .wcb-hero-overlay {
+    background: linear-gradient(135deg, rgba(67, 97, 238, 0.9), rgba(58, 12, 163, 0.7));
+}
+
+body.wcb-modern-theme .wcb-hero-content {
+    text-align: center;
+    padding: 40px 20px;
+    position: relative;
+    z-index: 2;
+}
+
+body.wcb-modern-theme .wcb-hero-title {
+    font-size: 3.5em !important;
+    font-weight: 800 !important;
+    margin-bottom: 20px !important;
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.wcb-modern-theme .wcb-hero-description {
+    font-size: 1.3em;
+    max-width: 800px;
+    margin: 0 auto;
+    opacity: 0.9;
+}
+
+/* ==========================================================================
+   2. BUNDLE CONTAINER MODERNO
+   ========================================================================== */
+body.wcb-modern-theme .wcb-bundle-container {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+body.wcb-modern-theme .wcb-bundle-group {
+    border: none;
+    border-radius: var(--wcb-m-radius);
+    background: white;
+    box-shadow: var(--wcb-m-shadow);
+    padding: 30px;
+    transition: var(--wcb-m-transition);
+    position: relative;
+    overflow: hidden;
+}
+
+body.wcb-modern-theme .wcb-bundle-group:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+}
+
+body.wcb-modern-theme .wcb-group-title {
+    font-size: 1.8em;
+    font-weight: 700;
+    color: var(--wcb-m-dark);
+    margin-bottom: 10px;
+    position: relative;
+    padding-bottom: 15px;
+}
+
+body.wcb-modern-theme .wcb-group-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background: linear-gradient(135deg, var(--wcb-m-primary), var(--wcb-m-accent));
+    border-radius: 2px;
+}
+
+body.wcb-modern-theme .wcb-group-description {
+    font-size: 1em;
+    color: #64748b;
+    margin-bottom: 25px;
+    line-height: 1.6;
+}
+
+/* ==========================================================================
+   3. PRODOTTI MODERNI
+   ========================================================================== */
+body.wcb-modern-theme .wcb-product-item {
+    border: 2px solid var(--wcb-m-border);
+    border-radius: 16px;
+    padding: 25px;
+    margin-bottom: 20px;
+    background: white;
+    transition: var(--wcb-m-transition);
+    position: relative;
+}
+
+body.wcb-modern-theme .wcb-product-item:hover {
+    border-color: var(--wcb-m-primary);
+    box-shadow: 0 8px 25px rgba(67, 97, 238, 0.1);
+}
+
+body.wcb-modern-theme .wcb-product-item.selected {
+    border-color: var(--wcb-m-primary);
+    background: linear-gradient(135deg, rgba(67, 97, 238, 0.03), rgba(76, 201, 240, 0.01));
+    box-shadow: 0 10px 30px rgba(67, 97, 238, 0.15);
+}
+
+/* Checkbox/Radio Moderni */
+body.wcb-modern-theme .wcb-product-item input[type="radio"],
+body.wcb-modern-theme .wcb-product-item input[type="checkbox"] {
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border: 2px solid #cbd5e1;
+    border-radius: 50%;
+    margin-right: 20px;
+    position: relative;
+    cursor: pointer;
+    transition: var(--wcb-m-transition);
+}
+
+body.wcb-modern-theme .wcb-product-item input[type="checkbox"] {
+    border-radius: 8px;
+}
+
+body.wcb-modern-theme .wcb-product-item input[type="radio"]:checked,
+body.wcb-modern-theme .wcb-product-item input[type="checkbox"]:checked {
+    border-color: var(--wcb-m-primary);
+    background: var(--wcb-m-primary);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+}
+
+body.wcb-modern-theme .wcb-product-item input[type="radio"]:checked::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    background: white;
+    border-radius: 50%;
+}
+
+body.wcb-modern-theme .wcb-product-item input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Immagini Moderne */
+body.wcb-modern-theme .wcb-product-thumbnail {
+    margin-right: 25px;
+    flex-shrink: 0;
+}
+
+body.wcb-modern-theme .wcb-product-thumbnail img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 12px;
+    border: 2px solid white;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    transition: var(--wcb-m-transition);
+}
+
+body.wcb-modern-theme .wcb-product-thumbnail img:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* Informazioni Prodotto Moderne */
+body.wcb-modern-theme .wcb-product-info {
+    flex-grow: 1;
+}
+
+body.wcb-modern-theme .wcb-product-name {
+    font-size: 1.2em;
+    font-weight: 700;
+    color: var(--wcb-m-dark);
+    margin-bottom: 8px;
+}
+
+body.wcb-modern-theme .wcb-product-price {
+    font-size: 1.4em;
+    font-weight: 800;
+    color: var(--wcb-m-primary);
+    background: linear-gradient(135deg, var(--wcb-m-primary), var(--wcb-m-accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Input Quantità Moderno */
+body.wcb-modern-theme .wcb-quantity-input {
+    width: 80px;
+    text-align: center;
+    border: 2px solid var(--wcb-m-border);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 1.1em;
+    font-weight: 600;
+    transition: var(--wcb-m-transition);
+}
+
+body.wcb-modern-theme .wcb-quantity-input:focus {
+    border-color: var(--wcb-m-primary);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+    outline: none;
+}
+
+/* ==========================================================================
+   4. SIDEBAR E STICKY BAR MODERNI
+   ========================================================================== */
+body.wcb-modern-theme .wcb-sticky-summary {
+    border-radius: var(--wcb-m-radius);
+    background: white;
+    box-shadow: var(--wcb-m-shadow);
+    border: 2px solid var(--wcb-m-border);
+    padding: 30px;
+}
+
+body.wcb-modern-theme .wcb-summary-title {
+    font-size: 1.4em;
+    font-weight: 700;
+    color: var(--wcb-m-dark);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+body.wcb-modern-theme .wcb-bundle-price {
+    font-size: 2.5em;
+    font-weight: 800;
+    text-align: center;
+    margin: 25px 0;
+    background: linear-gradient(135deg, var(--wcb-m-primary), var(--wcb-m-accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.wcb-modern-theme .single_add_to_cart_button {
+    background: linear-gradient(135deg, var(--wcb-m-primary), var(--wcb-m-secondary));
+    border: none;
+    border-radius: 12px;
+    padding: 18px 30px;
+    font-size: 1.1em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: var(--wcb-m-transition);
+    width: 100%;
+}
+
+body.wcb-modern-theme .single_add_to_cart_button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(67, 97, 238, 0.3);
+}
+
+body.wcb-modern-theme .single_add_to_cart_button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Mobile Sticky Bar Moderna */
+body.wcb-modern-theme .wcb-mobile-sticky-bar {
+    border-radius: 20px 20px 0 0;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-top: 2px solid var(--wcb-m-border);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   5. ANIMAZIONI E STATI MODERNI
+   ========================================================================== */
+@keyframes wcbPulse {
+    0% { box-shadow: 0 0 0 0 rgba(67, 97, 238, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(67, 97, 238, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(67, 97, 238, 0); }
+}
+
+body.wcb-modern-theme .wcb-group-complete {
+    border-left: 5px solid var(--wcb-m-success);
+    animation: wcbPulse 2s infinite;
+}
+
+body.wcb-modern-theme .wcb-group-incomplete {
+    border-left: 5px solid var(--wcb-m-danger);
+}
+
+@keyframes wcbFadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+body.wcb-modern-theme .wcb-bundle-group {
+    animation: wcbFadeIn 0.5s ease-out forwards;
+}
+
+/* Delay per ogni gruppo */
+body.wcb-modern-theme .wcb-bundle-group:nth-child(1) { animation-delay: 0.1s; }
+body.wcb-modern-theme .wcb-bundle-group:nth-child(2) { animation-delay: 0.2s; }
+body.wcb-modern-theme .wcb-bundle-group:nth-child(3) { animation-delay: 0.3s; }
+body.wcb-modern-theme .wcb-bundle-group:nth-child(4) { animation-delay: 0.4s; }
+body.wcb-modern-theme .wcb-bundle-group:nth-child(5) { animation-delay: 0.5s; }
+
+/* ==========================================================================
+   6. RESPONSIVE MODERNO
+   ========================================================================== */
+@media (max-width: 991px) {
+    body.wcb-modern-theme .wcb-hero-section {
+        height: 300px;
+    }
+    
+    body.wcb-modern-theme .wcb-hero-title {
+        font-size: 2.2em !important;
+    }
+    
+    body.wcb-modern-theme .wcb-product-thumbnail img {
+        width: 100px;
+        height: 100px;
+    }
+    
+    body.wcb-modern-theme .wcb-bundle-group {
+        padding: 20px;
+    }
+    
+    body.wcb-modern-theme .wcb-mobile-sticky-bar {
+        border-radius: 16px 16px 0 0;
+        padding: 15px 20px;
+    }
+}

@@ -1,11 +1,11 @@
 <?php
-/**
- * WCB GitHub Updater (Versione Finale Definitiva)
- * @version 1.7.0
- * Author: gIA70 - Gianfranco Greco
+/*
+ * updater.php - Versione 2.3.6
+ * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
 */
+
 
 if ( ! class_exists( 'WCB_GitHub_Updater' ) ) {
     class WCB_GitHub_Updater {
