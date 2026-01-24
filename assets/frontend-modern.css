@@ -1,5 +1,5 @@
 /*
- * asset/frontend-modern.css - Versione 2.4.0
+ * asset/frontend-modern.css - Versione 2.4.6
  * Tema Moderno WooC Bundle gIA70
  */
 
@@ -190,8 +190,8 @@ body.wcb-modern-theme .wcb-product-thumbnail {
 }
 
 body.wcb-modern-theme .wcb-product-thumbnail img {
-    width: 120px;
-    height: 120px;
+    width: 280px;
+    height: 320px;
     object-fit: cover;
     border-radius: 12px;
     border: 2px solid white;
@@ -354,8 +354,8 @@ body.wcb-modern-theme .wcb-bundle-group:nth-child(5) { animation-delay: 0.5s; }
     }
     
     body.wcb-modern-theme .wcb-product-thumbnail img {
-        width: 100px;
-        height: 100px;
+        width: 280px;
+        height: 320px;
     }
     
     body.wcb-modern-theme .wcb-bundle-group {

@@ -1,10 +1,12 @@
 /*
- * asset/frontend-modern.js - Versione 2.4.0
+ * asset/frontend-modern.js - Versione 2.4.6
  * Tema Moderno Frontend WooC Bundle gIA70
  */
 
 jQuery(document).ready(function($) {
     console.log('WooC Bundle Frontend Modern Theme v2.4.0 loaded');
+
+    const $bundleForm = $('.wcb-bundle-form');
     
     // Verifica se siamo in un bundle product
     if ($('.wcb-bundle-form').length === 0) return;
@@ -121,7 +123,17 @@ jQuery(document).ready(function($) {
             const $group = $(this);
             const $step = $(`.wcb-progress-step[data-group-index="${index}"]`);
             
-            if (validateGroup($group)) {
+            // ARCHITECT FIX: Usiamo la funzione globale esposta da frontend.js
+            // Verifichiamo prima che esista per evitare crash
+            let isValid = false;
+            
+            if (typeof window.wcb_validateGroup === 'function') {
+                isValid = window.wcb_validateGroup($group);
+            } else {
+                console.warn('wcb_validateGroup non ancora caricata');
+            }
+            
+            if (isValid) {
                 $step.addClass('completed');
                 $step.removeClass('incomplete');
             } else {

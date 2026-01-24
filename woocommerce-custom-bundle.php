@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WooC Bundle gIA70
  * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           2.4.0
+ * Version:           2.4.6
  * Author:            gIA70 - Gianfranco Greco
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -10,24 +10,21 @@
  * GithubRepo:        Gianfry70IT/WooC-Bundle-gIA70
  * Primary Branch:    main
  * Requires at least: 6.0
- * Tested up to:      6.8.2
+ * Tested up to:      6.9
  */
  
- 
 if (!defined('WCB_MODERN_THEME_DEFAULT')) {
-    define('WCB_MODERN_THEME_DEFAULT', false); // true per attivare di default
+    define('WCB_MODERN_THEME_DEFAULT', false);
 }
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// Aggiungi una nuova classe per gestire le impostazioni
+// Gestione Impostazioni Tema
 class WCB_Theme_Settings {
     private static $instance;
     
     public static function get_instance() {
-        if (null === self::$instance) {
-            self::$instance = new self();
-        }
+        if (null === self::$instance) { self::$instance = new self(); }
         return self::$instance;
     }
     
@@ -38,22 +35,11 @@ class WCB_Theme_Settings {
     }
     
     public function register_settings() {
-        register_setting('wcb_theme_settings', 'wcb_enable_modern_theme', [
-            'type' => 'boolean',
-            'default' => WCB_MODERN_THEME_DEFAULT,
-            'sanitize_callback' => 'rest_sanitize_boolean',
-        ]);
+        register_setting('wcb_theme_settings', 'wcb_enable_modern_theme', ['type' => 'boolean', 'default' => WCB_MODERN_THEME_DEFAULT, 'sanitize_callback' => 'rest_sanitize_boolean']);
     }
     
     public function add_settings_page() {
-        add_submenu_page(
-            'woocommerce',
-            __('WooC Bundle Theme Settings', 'wcb-framework'),
-            __('Bundle Theme', 'wcb-framework'),
-            'manage_woocommerce',
-            'wcb-theme-settings',
-            [$this, 'render_settings_page']
-        );
+        add_submenu_page('woocommerce', __('WooC Bundle Theme Settings', 'wcb-framework'), __('Bundle Theme', 'wcb-framework'), 'manage_woocommerce', 'wcb-theme-settings', [$this, 'render_settings_page']);
     }
     
     public function render_settings_page() {
@@ -64,21 +50,10 @@ class WCB_Theme_Settings {
                 <?php settings_fields('wcb_theme_settings'); ?>
                 <table class="form-table">
                     <tr>
-                        <th scope="row">
-                            <label for="wcb_enable_modern_theme"><?php esc_html_e('Tema Moderno', 'wcb-framework'); ?></label>
-                        </th>
+                        <th scope="row"><label for="wcb_enable_modern_theme"><?php esc_html_e('Tema Moderno', 'wcb-framework'); ?></label></th>
                         <td>
-                            <label>
-                                <input type="checkbox" 
-                                       id="wcb_enable_modern_theme" 
-                                       name="wcb_enable_modern_theme" 
-                                       value="1" 
-                                       <?php checked(get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)); ?>>
-                                <?php esc_html_e('Abilita il tema moderno per i bundle', 'wcb-framework'); ?>
-                            </label>
-                            <p class="description">
-                                <?php esc_html_e('Attiva interfaccia moderna con animazioni e design aggiornato.', 'wcb-framework'); ?>
-                            </p>
+                            <label><input type="checkbox" id="wcb_enable_modern_theme" name="wcb_enable_modern_theme" value="1" <?php checked(get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)); ?>> <?php esc_html_e('Abilita il tema moderno per i bundle', 'wcb-framework'); ?></label>
+                            <p class="description"><?php esc_html_e('Attiva interfaccia moderna con animazioni e design aggiornato.', 'wcb-framework'); ?></p>
                         </td>
                     </tr>
                 </table>
@@ -89,16 +64,14 @@ class WCB_Theme_Settings {
     }
     
     public function add_settings_link($links) {
-        $settings_link = '<a href="' . admin_url('admin.php?page=wcb-theme-settings') . '">' . __('Theme Settings', 'wcb-framework') . '</a>';
-        array_unshift($links, $settings_link);
+        array_unshift($links, '<a href="' . admin_url('admin.php?page=wcb-theme-settings') . '">' . __('Theme Settings', 'wcb-framework') . '</a>');
         return $links;
     }
 }
-
 WCB_Theme_Settings::get_instance();
 
+// Controllo Dipendenze
 add_action( 'admin_init', 'wcb_dependency_check_on_plugins_page' );
-
 function wcb_dependency_check_on_plugins_page() {
     if ( ! is_plugin_active( 'woocommerce/woocommerce.php' ) ) {
         $plugin_basename = plugin_basename( __FILE__ );
@@ -114,14 +87,7 @@ function wcb_show_wc_dependency_notice_row( $plugin_file, $plugin_data ) {
     <tr class="plugin-update-tr active notice-error notice-alt">
         <td colspan="<?php echo $colspan; ?>" class="plugin-update colspanchange">
             <div class="update-message notice-error notice-alt inline">
-                <p>
-                    <?php
-                    printf(
-                        esc_html__( 'Questo plugin non può essere attivato perché richiede %s per funzionare. Per favore, installa e attiva WooCommerce.', 'wcb-framework' ),
-                        '<strong>WooCommerce</strong>'
-                    );
-                    ?>
-                </p>
+                <p><?php printf( esc_html__( 'Questo plugin richiede %s.', 'wcb-framework' ), '<strong>WooCommerce</strong>' ); ?></p>
             </div>
         </td>
     </tr>
@@ -129,52 +95,30 @@ function wcb_show_wc_dependency_notice_row( $plugin_file, $plugin_data ) {
 }
 
 function wcb_disable_activate_link_for_wc_dependency( $actions ) {
-    if ( isset( $actions['activate'] ) ) {
-        $actions['activate'] = '<span>' . esc_html__( 'Attiva', 'wcb-framework' ) . '</span>';
-    }
+    if ( isset( $actions['activate'] ) ) $actions['activate'] = '<span>' . esc_html__( 'Attiva', 'wcb-framework' ) . '</span>';
     return $actions;
 }
 
-function wcb_admin_notice_if_wc_deactivated() {
-    if ( is_plugin_active( plugin_basename( __FILE__ ) ) && ! is_plugin_active( 'woocommerce/woocommerce.php' ) ) {
-        echo '<div class="notice notice-error"><p>';
-        echo esc_html__( '"WooC Bundle gIA70" è stato disattivato. Richiede che WooCommerce sia installato e attivo per funzionare.', 'wcb-framework' );
-        echo '</p></div>';
-        deactivate_plugins( plugin_basename( __FILE__ ) );
-    }
-}
-add_action( 'admin_notices', 'wcb_admin_notice_if_wc_deactivated' );
-
 require_once plugin_dir_path( __FILE__ ) . 'updater.php';
-
-function wcb_initialize_updater() {
-    new WCB_GitHub_Updater( __FILE__ );
-}
+function wcb_initialize_updater() { new WCB_GitHub_Updater( __FILE__ ); }
 add_action( 'plugins_loaded', 'wcb_initialize_updater' );
 
+// CLASSE PRINCIPALE FRAMEWORK
 final class WC_Custom_Bundle_Framework {
-
     private static $instance;
-
     public static function get_instance() {
-        if ( null === self::$instance ) {
-            self::$instance = new self();
-        }
+        if ( null === self::$instance ) { self::$instance = new self(); }
         return self::$instance;
     }
 
-    private function __construct() {
-        add_action( 'plugins_loaded', [ $this, 'init' ] );
-    }
+    private function __construct() { add_action( 'plugins_loaded', [ $this, 'init' ] ); }
 
     public function init() {
         if ( ! class_exists( 'WooCommerce' ) ) return;
-
         require_once plugin_dir_path( __FILE__ ) . 'includes/class-wc-product-custom-bundle.php';
         
         add_action('admin_body_class', [$this, 'add_admin_modern_class']);
         add_filter('body_class', [$this, 'add_frontend_modern_class']);
-
         add_filter( 'product_type_selector', [ $this, 'add_bundle_product_type' ] );
         add_filter( 'woocommerce_product_class', [ $this, 'load_bundle_product_class' ], 10, 2 );
         add_filter( 'woocommerce_product_data_tabs', [ $this, 'add_bundle_options_tab' ] );
@@ -183,26 +127,23 @@ final class WC_Custom_Bundle_Framework {
         add_action( 'woocommerce_product_options_general_product_data', [ $this, 'add_bundle_pricing_fields' ] );
         add_action( 'woocommerce_process_product_meta_custom_bundle', [ $this, 'save_bundle_meta' ] );
         add_action( 'wp_ajax_wcb_custom_product_search', [ $this, 'handle_custom_product_search' ] );
-        
         add_action( 'woocommerce_after_single_product_summary', [ $this, 'display_bundle_options_start' ], 5 );
         add_action( 'template_redirect', [ $this, 'setup_bundle_layout' ] );
-        
         add_shortcode( 'wcb_bundle_form', [ $this, 'bundle_shortcode_callback' ] );
-
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_scripts' ] );
-
         add_action( 'wp_ajax_wcb_add_bundle_to_cart', [ $this, 'wcb_add_bundle_to_cart_handler' ] );
         add_action( 'wp_ajax_nopriv_wcb_add_bundle_to_cart', [ $this, 'wcb_add_bundle_to_cart_handler' ] );
-
         add_filter( 'woocommerce_get_item_data', [ $this, 'display_bundle_selections_in_cart' ], 10, 2 );
         add_filter( 'woocommerce_add_cart_item_data', [ $this, 'attach_personalization_to_separate_items' ], 10, 3 );
         add_action( 'woocommerce_checkout_create_order_line_item', [ $this, 'add_selections_to_order_items' ], 10, 4 );
+        
+        // HOOK CALCOLO PREZZI CRITICO
         add_action( 'woocommerce_before_calculate_totals', [ $this, 'calculate_bundle_price_in_cart' ], 99 );
+        
         add_action( 'woocommerce_order_status_processing', [ $this, 'reduce_stock_for_bundle_items' ] );
         add_action( 'woocommerce_cart_item_removed', [ $this, 'handle_bundle_item_removed' ], 10, 2 );
         add_action( 'wp_ajax_wcb_get_variation_price', [ $this, 'get_variation_price_handler' ] );
         add_action( 'wp_ajax_nopriv_wcb_get_variation_price', [ $this, 'get_variation_price_handler' ] );
-        
         add_filter( 'woocommerce_cart_item_name', [ $this, 'add_bundle_info_to_cart_item_name' ], 10, 3 );
         add_filter( 'plugin_row_meta', [ $this, 'add_plugin_meta_links' ], 10, 2 );
     }
@@ -216,7 +157,6 @@ final class WC_Custom_Bundle_Framework {
                 remove_action( 'woocommerce_single_product_summary', 'woocommerce_template_single_price', 10 );
                 remove_action( 'woocommerce_single_product_summary', 'woocommerce_template_single_excerpt', 20 );
                 remove_action( 'woocommerce_single_product_summary', 'woocommerce_template_single_meta', 40 );
-                
                 add_action( 'woocommerce_before_single_product', [ $this, 'render_bundle_hero' ], 10 );
             }
         }
@@ -232,9 +172,7 @@ final class WC_Custom_Bundle_Framework {
             <div class="wcb-hero-overlay"></div>
             <div class="wcb-hero-content">
                 <h1 class="wcb-hero-title"><?php echo esc_html($title); ?></h1>
-                <?php if ( ! empty( $short_desc ) ) : ?>
-                    <div class="wcb-hero-description"><?php echo wp_kses_post($short_desc); ?></div>
-                <?php endif; ?>
+                <?php if ( ! empty( $short_desc ) ) : ?><div class="wcb-hero-description"><?php echo wp_kses_post($short_desc); ?></div><?php endif; ?>
             </div>
         </div>
         <?php
@@ -242,10 +180,7 @@ final class WC_Custom_Bundle_Framework {
     
     public function add_plugin_meta_links( $links, $file ) {
         if ( plugin_basename( __FILE__ ) === $file ) {
-            $row_meta = [
-                'nerodigitale' => '<a href="https://nerodigitale.it" target="_blank" style="font-weight:bold; color:#2271b1;">Nero Digitale</a>',
-                'view_details' => '<a href="https://github.com/Gianfry70IT/WooC-Bundle-gIA70" target="_blank" aria-label="' . esc_attr__( 'Visualizza dettagli su GitHub', 'wcb-framework' ) . '">' . esc_html__( 'View details', 'wcb-framework' ) . '</a>',
-            ];
+            $row_meta = ['nerodigitale' => '<a href="https://nerodigitale.it" target="_blank" style="font-weight:bold; color:#2271b1;">Nero Digitale</a>'];
             return array_merge( $links, $row_meta );
         }
         return $links;
@@ -256,18 +191,12 @@ final class WC_Custom_Bundle_Framework {
             $parent_bundle = wc_get_product( $cart_item['wcb_parent_bundle_id'] );
             if ( $parent_bundle ) {
                 $bundle_id_attr = esc_attr( $cart_item['wcb_bundle_part_of'] );
-                
-                $edit_url = add_query_arg( [
-                    'wcb_edit' => $cart_item['wcb_bundle_part_of'], 
-                    'v'        => time() 
-                ], $parent_bundle->get_permalink() );
-
+                $edit_url = add_query_arg( ['wcb_edit' => $cart_item['wcb_bundle_part_of'], 'v' => time() ], $parent_bundle->get_permalink() );
                 $html = $product_name;
                 $html .= '<div class="wcb-cart-bundle-info" data-wcb-bundle-id="' . $bundle_id_attr . '">';
                 $html .= '<span class="wcb-bundle-label">' . sprintf( __( 'Bundle: %s', 'wcb-framework' ), $parent_bundle->get_name() ) . '</span>';
                 $html .= ' <a href="' . esc_url( $edit_url ) . '" class="wcb-edit-bundle-link">' . __( 'Modifica Bundle', 'wcb-framework' ) . '</a>';
                 $html .= '</div>';
-                
                 return $html;
             }
         }
@@ -276,24 +205,13 @@ final class WC_Custom_Bundle_Framework {
 
     public function get_variation_price_handler() {
         check_ajax_referer('wcb-add-to-cart-nonce', 'security');
-        
         $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
         $attributes = isset($_POST['attributes']) ? $_POST['attributes'] : [];
-        
-        if (!$product_id) {
-            wp_send_json_error(['message' => 'Product ID mancante']);
-            return;
-        }
-        
+        if (!$product_id) { wp_send_json_error(['message' => 'Product ID mancante']); return; }
         $product = wc_get_product($product_id);
-        if (!$product || !$product->is_type('variable')) {
-            wp_send_json_error(['message' => 'Prodotto non valido']);
-            return;
-        }
-        
+        if (!$product || !$product->is_type('variable')) { wp_send_json_error(['message' => 'Prodotto non valido']); return; }
         $data_store = WC_Data_Store::load('product');
         $variation_id = $data_store->find_matching_product_variation($product, $attributes);
-        
         if ($variation_id) {
             $variation = wc_get_product($variation_id);
             $price = wc_get_price_to_display($variation);
@@ -309,9 +227,7 @@ final class WC_Custom_Bundle_Framework {
     }
 
     public function load_bundle_product_class($classname, $product_type) {
-        if ('custom_bundle' == $product_type) {
-            return 'WC_Product_Custom_Bundle';
-        }
+        if ('custom_bundle' == $product_type) return 'WC_Product_Custom_Bundle';
         return $classname;
     }
 
@@ -331,14 +247,9 @@ final class WC_Custom_Bundle_Framework {
         
         $product_id = isset($form_data['add-to-cart']) ? intval($form_data['add-to-cart']) : 0;
         $product = wc_get_product($product_id);
-
-        if (!$product) {
-            wp_send_json_error(['messages' => [__('Prodotto non trovato.', 'wcb-framework')]]);
-            return;
-        }
+        if (!$product) { wp_send_json_error(['messages' => [__('Prodotto non trovato.', 'wcb-framework')]]); return; }
 
         $update_bundle_id = isset($form_data['wcb_update_bundle_id']) ? wc_clean($form_data['wcb_update_bundle_id']) : '';
-        
         $bundle_groups = $product->get_meta('_bundle_groups', true);
         if(!is_array($bundle_groups)) $bundle_groups = [];
         $errors = [];
@@ -355,37 +266,25 @@ final class WC_Custom_Bundle_Framework {
             $enabled = ($group_config['personalization_enabled'] ?? 'no') === 'yes';
             $fields = $group_config['personalization_fields'] ?? [];
             $data_to_store = [];
-
             if ($enabled && !empty($fields)) {
                 foreach ($fields as $fIndex => $field) {
                     $val = sanitize_text_field($posted_personalizations[$group_index][$pid][$set_index][$fIndex] ?? '');
                     if (($field['required'] ?? 'no') === 'yes' && empty($val)) {
                         $errors[] = sprintf(__('Il campo "%1$s" per %2$s è obbligatorio.', 'wcb-framework'), $field['label'], $product_name);
                     }
-                    if (!empty($val)) {
-                        $data_to_store[] = ['label' => $field['label'], 'value' => $val];
-                    }
+                    if (!empty($val)) $data_to_store[] = ['label' => $field['label'], 'value' => $val];
                 }
             }
             return $data_to_store;
         };
 
-        // Helper per validazione Min/Step
         $validate_product_qty = function($qty, $pid, $group_config, $product_name) use (&$errors) {
             $products_settings = $group_config['products_settings'] ?? [];
             $settings = $products_settings[$pid] ?? [];
-            
             $min = absint($settings['min_qty'] ?? 1);
             $step = absint($settings['step'] ?? 1);
-
-            if ($qty < $min) {
-                $errors[] = sprintf(__('La quantità minima per "%s" è %d.', 'wcb-framework'), $product_name, $min);
-                return false;
-            }
-            if ($qty % $step !== 0) {
-                $errors[] = sprintf(__('La quantità per "%s" deve essere un multiplo di %d.', 'wcb-framework'), $product_name, $step);
-                return false;
-            }
+            if ($qty < $min) { $errors[] = sprintf(__('La quantità minima per "%s" è %d.', 'wcb-framework'), $product_name, $min); return false; }
+            if ($qty % $step !== 0) { $errors[] = sprintf(__('La quantità per "%s" deve essere un multiplo di %d.', 'wcb-framework'), $product_name, $step); return false; }
             return true;
         };
 
@@ -399,9 +298,6 @@ final class WC_Custom_Bundle_Framework {
                     $pid = absint($posted_radio_selections[$group_index]);
                     $child_product = wc_get_product($pid);
                     if ($child_product) {
-                        // NON chiamiamo validate_product_qty qui. 
-                        // In modalità singola (radio), la quantità è sempre 1, ignoriamo min/step accidentali.
-
                         $item_id = $pid;
                         if ($child_product->is_type('variable')) {
                             $attributes = $posted_selections[$group_index][$pid]['attributes'] ?? [];
@@ -420,9 +316,6 @@ final class WC_Custom_Bundle_Framework {
                         $pid = absint($pid);
                         $child_product = wc_get_product($pid);
                         if ($child_product) {
-                             // NON chiamiamo validate_product_qty qui. 
-                             // In modalità multipla (checkbox), la selezione vale 1.
-
                             $item_id = $pid;
                             if ($child_product->is_type('variable')) {
                                 $attributes = $data['attributes'] ?? [];
@@ -443,15 +336,10 @@ final class WC_Custom_Bundle_Framework {
                     if ($qty > 0) {
                         $child_product = wc_get_product($pid);
                         if ($child_product) {
-                            // Qui MANTENIAMO la validazione perché l'utente inserisce un numero
                             if(!$validate_product_qty($qty, $pid, $group_config, $child_product->get_name())) continue;
-
                             if ($child_product->is_type('variable')) {
                                 $variation_sets = $posted_variation_sets_all[$group_index][$pid] ?? [];
-                                if (count($variation_sets) !== $qty) {
-                                    $errors[] = sprintf(__('Quantità errata per "%s".', 'wcb-framework'), $child_product->get_name());
-                                    continue;
-                                }
+                                if (count($variation_sets) !== $qty) { $errors[] = sprintf(__('Quantità errata per "%s".', 'wcb-framework'), $child_product->get_name()); continue; }
                                 foreach ($variation_sets as $index => $attributes) {
                                     $var_id = $this->find_variation_id_from_attributes($pid, $attributes, $errors);
                                     if ($var_id > 0) {
@@ -469,22 +357,15 @@ final class WC_Custom_Bundle_Framework {
                     }
                 }
             }
-
-            if ($is_required && empty($selection_instances)) {
-                 if (empty($errors)) {
-                     $errors[] = sprintf(__('Devi fare una selezione per il gruppo "%s".', 'wcb-framework'), $group_config['title']);
-                 }
+            if ($is_required && empty($selection_instances) && empty($errors)) {
+                 $errors[] = sprintf(__('Devi fare una selezione per il gruppo "%s".', 'wcb-framework'), $group_config['title']);
             }
-
             if (!empty($selection_instances) && empty($errors)) {
                 $final_selections[$group_index] = $selection_instances;
             }
         }
 
-        if (!empty($errors)) {
-            wp_send_json_error(['messages' => array_unique($errors)]);
-            return;
-        }
+        if (!empty($errors)) { wp_send_json_error(['messages' => array_unique($errors)]); return; }
 
         if (!empty($update_bundle_id)) {
             $cart = WC()->cart;
@@ -499,32 +380,29 @@ final class WC_Custom_Bundle_Framework {
 
         if ($add_as_separate) {
             $bundle_cart_id = uniqid('wcb_'); 
-            
-            // CORREZIONE CRITICA: Iteriamo per GRUPPO, non aggreghiamo globalmente per ID.
             foreach ($final_selections as $group_idx => $group_selections) {
-                // Aggreghiamo SOLO all'interno dello stesso gruppo per evitare troppe righe duplicate se identiche
                 $group_aggregated_items = [];
+                $group_config_raw = $bundle_groups[$group_idx] ?? [];
 
                 foreach ($group_selections as $selection) {
                     $item_id = $selection['item_id'];
-                    // Usiamo un hash unico per aggregare solo se item_id E personalizzazioni sono identici
                     $hash = $item_id . md5(json_encode($selection['personalization_data']));
-                    
+                    $prod_obj = wc_get_product($item_id);
+                    $parent_id_lookup = $prod_obj->is_type('variation') ? $prod_obj->get_parent_id() : $item_id;
+                    $p_settings = $group_config_raw['products_settings'][$parent_id_lookup] ?? [];
+                    $qty_multiplier = absint($p_settings['default_qty'] ?? 1);
+                    if($qty_multiplier < 1) $qty_multiplier = 1;
+
                     if (!isset($group_aggregated_items[$hash])) {
-                        $group_aggregated_items[$hash] = [
-                            'item_id' => $item_id,
-                            'quantity' => 0,
-                            'personalization_data' => $selection['personalization_data']
-                        ];
+                        $group_aggregated_items[$hash] = ['item_id' => $item_id, 'quantity' => 0, 'personalization_data' => $selection['personalization_data']];
                     }
-                    $group_aggregated_items[$hash]['quantity']++;
+                    $group_aggregated_items[$hash]['quantity'] += $qty_multiplier;
                 }
 
                 foreach ($group_aggregated_items as $item_data) {
                     $item_id = $item_data['item_id'];
                     $quantity = $item_data['quantity'];
                     $pers_data = $item_data['personalization_data'];
-
                     $product_to_add = wc_get_product($item_id);
                     $variation_id = $product_to_add->is_type('variation') ? $product_to_add->get_id() : 0;
                     $parent_id = $product_to_add->is_type('variation') ? $product_to_add->get_parent_id() : $product_to_add->get_id();
@@ -534,14 +412,9 @@ final class WC_Custom_Bundle_Framework {
                         'wcb_bundle_part_of'       => $bundle_cart_id,
                         'wcb_parent_bundle_id'     => $product_id,
                         'wcb_bundle_configuration' => $final_selections,
-                        // NUOVO: Salviamo l'indice del gruppo sorgente per applicare il prezzo corretto
                         'wcb_source_group_index'   => $group_idx 
                     ];
-                    
-                    if(!empty($pers_data)) {
-                        $cart_item_data['wcb_item_personalization'] = $pers_data;
-                    }
-
+                    if(!empty($pers_data)) $cart_item_data['wcb_item_personalization'] = $pers_data;
                     WC()->cart->add_to_cart($parent_id, $quantity, $variation_id, $attributes, $cart_item_data);
                 }
             }
@@ -554,16 +427,11 @@ final class WC_Custom_Bundle_Framework {
         wp_send_json_success(['cart_url' => wc_get_cart_url(), 'message' => $message]);
     }
     
-    // --- FIX CRITICO PER CARRELLO "SEPARATE ITEMS" ---
     public function attach_personalization_to_separate_items( $cart_item_data, $product_id, $variation_id ) {
-        if ( isset($cart_item_data['wcb_item_personalization']) ) {
-            return $cart_item_data;
-        }
-
+        if ( isset($cart_item_data['wcb_item_personalization']) ) return $cart_item_data;
         if ( isset( $cart_item_data['wcb_bundle_configuration'] ) ) {
             $config = $cart_item_data['wcb_bundle_configuration'];
             $target_id = $variation_id > 0 ? $variation_id : $product_id;
-
             foreach ($config as $group_selections) {
                 foreach ($group_selections as $selection) {
                     if ($selection['item_id'] == $target_id && !empty($selection['personalization_data'])) {
@@ -579,16 +447,12 @@ final class WC_Custom_Bundle_Framework {
     private function find_variation_id_from_attributes( $product_id, $posted_attributes, &$errors_ref = null ) {
         $product = wc_get_product( $product_id );
         if ( ! $product || ! $product->is_type('variable') ) return 0;
-
         $attributes_to_match = [];
         if (is_array($posted_attributes)) {
             foreach ($posted_attributes as $key => $value) {
-                if (strpos($key, 'attribute_') === 0) {
-                    $attributes_to_match[ $key ] = $value;
-                }
+                if (strpos($key, 'attribute_') === 0) { $attributes_to_match[ $key ] = $value; }
             }
         }
-
         foreach ($product->get_variation_attributes() as $attribute_name => $options) {
             $full_attribute_key = 'attribute_' . sanitize_title($attribute_name);
             if (!isset($attributes_to_match[$full_attribute_key]) || '' === $attributes_to_match[$full_attribute_key]) {
@@ -599,10 +463,8 @@ final class WC_Custom_Bundle_Framework {
                 return 0;
             }
         }
-
         $data_store = WC_Data_Store::load( 'product' );
         $variation_id = $data_store->find_matching_product_variation( $product, $attributes_to_match );
-
         if ( ! $variation_id ) {
             if (is_array($errors_ref)) {
                 $error_message = sprintf(__( 'La combinazione di opzioni scelta per "%s" non è disponibile o non è valida.', 'wcb-framework' ), $product->get_name());
@@ -616,29 +478,19 @@ final class WC_Custom_Bundle_Framework {
     public function handle_custom_product_search() {
         check_ajax_referer('search-products', 'security');
         if (!current_user_can('edit_products')) wp_die(-1);
-
         $term = isset($_GET['term']) ? (string) wc_clean(wp_unslash($_GET['term'])) : '';
         if (empty($term)) wp_die();
-
         $exclude_ids = isset($_GET['exclude']) && !empty($_GET['exclude']) ? array_map('intval', explode(',', $_GET['exclude'])) : [];
-        
         $data_store = WC_Data_Store::load('product');
         $ids = $data_store->search_products($term, '', false, false, 30);
         $products = [];
-
         foreach ($ids as $id) {
             if (in_array($id, $exclude_ids)) continue;
             $product = wc_get_product($id);
             if (!$product || $product->is_type('variation') || $product->is_type('custom_bundle')) continue;
-            
             $image_id = $product->get_image_id();
             $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
-
-            $products[] = [
-                'id' => $id,
-                'text' => wp_strip_all_tags($product->get_formatted_name()),
-                'image_url' => $image_url,
-            ];
+            $products[] = ['id' => $id, 'text' => wp_strip_all_tags($product->get_formatted_name()), 'image_url' => $image_url];
         }
         wp_send_json($products);
     }
@@ -651,17 +503,7 @@ final class WC_Custom_Bundle_Framework {
                     <div style="font-size:2em;font-weight:600;padding:10px;"><?php esc_html_e('Istruzioni per il Cliente', 'wcb-framework'); ?></div>
                     <?php
                     $content = get_post_meta($post->ID, '_bundle_instructions', true);
-                    $editor_id = '_bundle_instructions';
-                    $settings = array(
-                        'textarea_name' => '_bundle_instructions',
-                        'media_buttons' => true,
-                        'textarea_rows' => 10,
-                        'tinymce'       => array(
-                            'toolbar1' => 'bold,italic,underline,bullist,numlist,link,unlink,undo,redo,wp_adv',
-                            'toolbar2' => 'formatselect,alignleft,aligncenter,alignright,strikethrough,hr,forecolor,pastetext,removeformat,charmap,outdent,indent,fullscreen',
-                        ),
-                    );
-                    wp_editor(wp_kses_post($content), $editor_id, $settings);
+                    wp_editor(wp_kses_post($content), '_bundle_instructions', ['textarea_name' => '_bundle_instructions', 'media_buttons' => true, 'textarea_rows' => 10]);
                     ?>
                 </div>
             </div>   
@@ -670,12 +512,9 @@ final class WC_Custom_Bundle_Framework {
                 <button type="button" class="button" id="expand_all_groups"><?php esc_html_e('Espandi Tutto', 'wcb-framework'); ?></button>
                 <button type="button" class="button" id="collapse_all_groups"><?php esc_html_e('Chiudi Tutto', 'wcb-framework'); ?></button>
             </div>
-
             <div style="font-size:2em;font-weight:600;padding:10px;"><?php esc_html_e('Gruppi del Bundle', 'wcb-framework'); ?> <span class="description">(<?php esc_html_e('Trascina per riordinare', 'wcb-framework'); ?>)</span></div>
             <div class="options_group" id="bundle_groups_container"></div>
-            <div class="wcb-signature">
-                <p><strong>WooC Bundle gIA70</strong> by <em>Gianfranco Greco</em></p>
-            </div>
+            <div class="wcb-signature"><p><strong>WooC Bundle gIA70</strong> by <em>Gianfranco Greco</em></p></div>
         </div>
         <?php
     }
@@ -683,12 +522,11 @@ final class WC_Custom_Bundle_Framework {
     public function enqueue_admin_scripts($hook) {
         global $post;
         if ('post-new.php' == $hook || ('post.php' == $hook && isset($post->post_type) && 'product' == $post->post_type)) {
-            wp_enqueue_style('wcb-admin-style', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '2.3.5');
-            wp_enqueue_script('wcb-admin-script', plugin_dir_url(__FILE__) . 'assets/admin.js', ['jquery', 'wc-enhanced-select', 'jquery-ui-sortable'], '2.3.5', true);
+            wp_enqueue_style('wcb-admin-style', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '2.4.6');
+            wp_enqueue_script('wcb-admin-script', plugin_dir_url(__FILE__) . 'assets/admin.js', ['jquery', 'wc-enhanced-select', 'jquery-ui-sortable'], '2.4.6', true);
             
             $bundle_groups_data = get_post_meta($post->ID, '_bundle_groups', true);
             if (!is_array($bundle_groups_data)) $bundle_groups_data = [];
-
             $groups_for_js = [];
             foreach ($bundle_groups_data as $group) {
                 $products_with_names = [];
@@ -698,11 +536,7 @@ final class WC_Custom_Bundle_Framework {
                         if ($product) {
                             $image_id = $product->get_image_id();
                             $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
-                            $products_with_names[] = [
-                                'id' => $product_id, 
-                                'text' => wp_strip_all_tags($product->get_formatted_name()),
-                                'image_url' => $image_url
-                            ];
+                            $products_with_names[] = ['id' => $product_id, 'text' => wp_strip_all_tags($product->get_formatted_name()), 'image_url' => $image_url];
                         }
                     }
                 }
@@ -710,35 +544,33 @@ final class WC_Custom_Bundle_Framework {
                 $groups_for_js[] = $group;
             }
             wp_localize_script('wcb-admin-script', 'wcb_bundle_data', ['groups' => $groups_for_js]);
-            
             if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.css', ['wcb-admin-style'], '2.4.0');
-                wp_enqueue_script('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.js', ['wcb-admin-script'], '2.4.0', true);
+                wp_enqueue_style('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.css', ['wcb-admin-style'], '2.4.6');
+                wp_enqueue_script('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.js', ['wcb-admin-script'], '2.4.6', true);
             }
         }
     }
 
     public function enqueue_frontend_scripts() {
         if (is_product() && get_the_id() && wc_get_product(get_the_id())->get_type() === 'custom_bundle') {
-            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.3.5');
-            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.3.5', true);
-    
+            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.4.6');
+            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.4.6', true);
+
             $product_id = get_the_id();
             $pricing_data = [
-                'type'                  => get_post_meta($product_id, '_bundle_pricing_type', true),
-                'fixed_price'           => wc_get_price_to_display(wc_get_product($product_id)),
-                'discount_amount'       => floatval(get_post_meta($product_id, '_bundle_discount_amount', true)),
-                'discount_percentage'   => floatval(get_post_meta($product_id, '_bundle_discount_percentage', true)),
-                'currency_symbol'       => get_woocommerce_currency_symbol(),
-                'decimal_separator'     => wc_get_price_decimal_separator(),
-                'thousand_separator'    => wc_get_price_thousand_separator(),
-                'currency_position'     => get_option( 'woocommerce_currency_pos' )
+                'type' => get_post_meta($product_id, '_bundle_pricing_type', true),
+                'fixed_price' => wc_get_price_to_display(wc_get_product($product_id)),
+                'discount_amount' => floatval(get_post_meta($product_id, '_bundle_discount_amount', true)),
+                'discount_percentage' => floatval(get_post_meta($product_id, '_bundle_discount_percentage', true)),
+                'currency_symbol' => get_woocommerce_currency_symbol(),
+                'decimal_separator' => wc_get_price_decimal_separator(),
+                'thousand_separator' => wc_get_price_thousand_separator(),
+                'currency_position' => get_option( 'woocommerce_currency_pos' )
             ];
             
             $edit_config = null;
             $edit_bundle_id = null;
             $enriched_config = [];
-
             if (isset($_GET['wcb_edit']) && !empty($_GET['wcb_edit'])) {
                 $edit_bundle_id = sanitize_text_field($_GET['wcb_edit']);
                 $cart = WC()->cart->get_cart();
@@ -750,19 +582,15 @@ final class WC_Custom_Bundle_Framework {
                         }
                     }
                 }
-
                 if ($edit_config) {
                     foreach ($edit_config as $group_idx => $group_selections) {
                         foreach ($group_selections as $selection) {
                             $item_id = $selection['item_id'];
                             $product = wc_get_product($item_id);
-                            
                             $item_data = $selection;
-                            
                             if ($product && $product->is_type('variation')) {
                                 $item_data['is_variation'] = true;
                                 $item_data['parent_id'] = $product->get_parent_id();
-                                
                                 $attributes = [];
                                 foreach ( $product->get_attributes() as $name => $value ) {
                                     $key = 'attribute_' . sanitize_title( $name );
@@ -783,11 +611,7 @@ final class WC_Custom_Bundle_Framework {
                 'ajax_url' => admin_url('admin-ajax.php'), 
                 'nonce' => wp_create_nonce('wcb-add-to-cart-nonce'),
                 'pricing' => $pricing_data,
-                'edit_mode' => [
-                    'active' => !empty($edit_config),
-                    'bundle_id' => $edit_bundle_id,
-                    'config' => $enriched_config 
-                ],
+                'edit_mode' => [ 'active' => !empty($edit_config), 'bundle_id' => $edit_bundle_id, 'config' => $enriched_config ],
                 'i18n' => [
                     'confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework'),
                     'update_bundle_btn' => __('Aggiorna Bundle', 'wcb-framework')
@@ -795,59 +619,47 @@ final class WC_Custom_Bundle_Framework {
             ]);
             
             if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.0');
-                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.0', true);
+                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.6');
+                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.6', true);
             }
         }
         
         if (is_cart()) {
-            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.3.5');
-            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.3.5', true);
+            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.4.6');
+            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.4.6', true);
             wp_localize_script('wcb-frontend-script', 'wcb_params', [
-                'i18n' => [
-                    'confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework'),
-                ]
+                'i18n' => ['confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework')]
             ]);
-            
             if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.0');
-                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.0', true);
+                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.6');
+                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.6', true);
             }
         }
     }
 
     public function save_bundle_meta($post_id) {
-        if (isset($_POST['_bundle_instructions'])) {
-            update_post_meta($post_id, '_bundle_instructions', wp_kses_post($_POST['_bundle_instructions']));
-        }
+        if (isset($_POST['_bundle_instructions'])) update_post_meta($post_id, '_bundle_instructions', wp_kses_post($_POST['_bundle_instructions']));
+        
         if (isset($_POST['_bundle_groups']) && is_array($_POST['_bundle_groups'])) {
             $groups_data = [];
             foreach ($_POST['_bundle_groups'] as $group) {
-                
-                // Campi Personalizzazione
                 $personalization_fields = [];
                 if (isset($group['personalization_fields']) && is_array($group['personalization_fields'])) {
                     foreach ($group['personalization_fields'] as $field) {
-                        $personalization_fields[] = [
-                            'label'    => sanitize_text_field($field['label'] ?? ''),
-                            'required' => sanitize_text_field($field['required'] ?? 'no'),
-                            'type'     => 'text' 
-                        ];
+                        $personalization_fields[] = ['label' => sanitize_text_field($field['label'] ?? ''), 'required' => sanitize_text_field($field['required'] ?? 'no'), 'type' => 'text'];
                     }
                 }
-
-                // NUOVO: Settings per Prodotto (Min, Step, Price)
                 $products_settings = [];
                 if (isset($group['products_settings']) && is_array($group['products_settings'])) {
                     foreach ($group['products_settings'] as $pid => $settings) {
                         $products_settings[$pid] = [
-                            'min_qty' => absint($settings['min_qty'] ?? 1),
-                            'step'    => absint($settings['step'] ?? 1),
-                            'price'   => wc_format_decimal($settings['price'] ?? '')
+                            'min_qty'     => absint($settings['min_qty'] ?? 1),
+                            'step'        => absint($settings['step'] ?? 1),
+                            'default_qty' => absint($settings['default_qty'] ?? 1),
+                            'price'       => wc_format_decimal($settings['price'] ?? '')
                         ];
                     }
                 }
-
                 $groups_data[] = [
                     'title'                    => sanitize_text_field($group['title'] ?? ''),
                     'products'                 => isset($group['products']) ? array_map('intval', $group['products']) : [],
@@ -858,7 +670,7 @@ final class WC_Custom_Bundle_Framework {
                     'is_required'              => isset($group['is_required']) ? 'yes' : 'no',
                     'personalization_enabled'  => isset($group['personalization_enabled']) ? 'yes' : 'no',
                     'personalization_fields'   => $personalization_fields, 
-                    'products_settings'        => $products_settings, // SALVA I SETTINGS
+                    'products_settings'        => $products_settings,
                     'price_override'           => wc_format_decimal($group['price_override'] ?? ''), 
                 ];
             }
@@ -875,63 +687,26 @@ final class WC_Custom_Bundle_Framework {
 
     public function add_bundle_pricing_fields() {
         echo '<div class="options_group show_if_custom_bundle">';
-
-        woocommerce_wp_select([
-            'id'      => '_bundle_pricing_type',
-            'label'   => __('Tipo di Prezzo Bundle', 'wcb-framework'),
-            'options' => [
-                'fixed'      => __('Prezzo Fisso', 'wcb-framework'),
-                'calculated' => __('Prezzo Calcolato', 'wcb-framework'),
-            ],
-            'desc_tip' => true,
-            'description' => __('Scegli come calcolare il prezzo del bundle.', 'wcb-framework'),
-        ]);
-
-        echo '<div class="bundle_price_field_wrapper bundle_price_fixed_field">';
-        echo '<p class="form-field"><em>' . __('Il prezzo totale del bundle deve essere inserito nel campo "Prezzo di Listino" nella tab "Generale".', 'wcb-framework') . '</em></p>';
-        echo '</div>';
-
+        woocommerce_wp_select(['id' => '_bundle_pricing_type', 'label' => __('Tipo di Prezzo Bundle', 'wcb-framework'), 'options' => ['fixed' => __('Prezzo Fisso', 'wcb-framework'), 'calculated' => __('Prezzo Calcolato', 'wcb-framework')], 'desc_tip' => true, 'description' => __('Scegli come calcolare il prezzo del bundle.', 'wcb-framework')]);
+        echo '<div class="bundle_price_field_wrapper bundle_price_fixed_field"><p class="form-field"><em>' . __('Il prezzo totale del bundle deve essere inserito nel campo "Prezzo di Listino" nella tab "Generale".', 'wcb-framework') . '</em></p></div>';
         echo '<div class="bundle_price_field_wrapper bundle_price_calculated_field">';
-        woocommerce_wp_text_input([
-            'id'          => '_bundle_discount_amount',
-            'label'       => __('Sconto Fisso (€)', 'wcb-framework'),
-            'data_type'   => 'price',
-            'desc_tip'    => true,
-            'description' => __('Applica uno sconto fisso sul totale calcolato dei prodotti.', 'wcb-framework'),
-        ]);
-        woocommerce_wp_text_input([
-            'id'          => '_bundle_discount_percentage',
-            'label'       => __('Sconto Percentuale (%)', 'wcb-framework'),
-            'data_type'   => 'decimal',
-            'desc_tip'    => true,
-            'description' => __('Applica uno sconto percentuale sul totale calcolato dei prodotti.', 'wcb-framework'),
-        ]);
+        woocommerce_wp_text_input(['id' => '_bundle_discount_amount', 'label' => __('Sconto Fisso (€)', 'wcb-framework'), 'data_type' => 'price', 'desc_tip' => true, 'description' => __('Applica uno sconto fisso sul totale calcolato dei prodotti.', 'wcb-framework')]);
+        woocommerce_wp_text_input(['id' => '_bundle_discount_percentage', 'label' => __('Sconto Percentuale (%)', 'wcb-framework'), 'data_type' => 'decimal', 'desc_tip' => true, 'description' => __('Applica uno sconto percentuale sul totale calcolato dei prodotti.', 'wcb-framework')]);
         echo '</div>';
-        
-        woocommerce_wp_checkbox([
-            'id'          => '_bundle_add_as_separate_items',
-            'label'       => __('Modalità Carrello', 'wcb-framework'),
-            'description' => __('Aggiungi i prodotti scelti come articoli separati nel carrello', 'wcb-framework'),
-            'desc_tip'    => true,
-        ]);
-
+        woocommerce_wp_checkbox(['id' => '_bundle_add_as_separate_items', 'label' => __('Modalità Carrello', 'wcb-framework'), 'description' => __('Aggiungi i prodotti scelti come articoli separati nel carrello', 'wcb-framework'), 'desc_tip' => true]);
         echo '</div>';
     }
 
     public function display_bundle_options_start() {
         global $product;
-        if ($product && $product->get_type() === 'custom_bundle') {
-            $this->render_bundle_options_html($product->get_id());
-        }
+        if ($product && $product->get_type() === 'custom_bundle') $this->render_bundle_options_html($product->get_id());
     }
 
     public function bundle_shortcode_callback( $atts ) {
         $atts = shortcode_atts(['id' => get_the_ID()], $atts, 'wcb_bundle_form');
         $product_id = absint($atts['id']);
         if (!$product_id) return '';
-
         remove_action('woocommerce_single_product_summary', [$this, 'display_bundle_options_start'], 30);
-
         ob_start();
         $this->render_bundle_options_html($product_id);
         return ob_get_clean();
@@ -940,13 +715,8 @@ final class WC_Custom_Bundle_Framework {
     public function render_bundle_options_html( $product_id ) {
         $product = wc_get_product( $product_id );
         if ( ! $product || $product->get_type() !== 'custom_bundle' ) return;
-
         $bundle_groups_raw = get_post_meta($product->get_id(), '_bundle_groups', true);
-        if (empty($bundle_groups_raw) || !is_array($bundle_groups_raw)) {
-            echo '<p>' . esc_html__('Prodotto non configurato.', 'wcb-framework') . '</p>';
-            return;
-        }
-
+        if (empty($bundle_groups_raw) || !is_array($bundle_groups_raw)) { echo '<p>' . esc_html__('Prodotto non configurato.', 'wcb-framework') . '</p>'; return; }
         $bundle_groups_filtered = [];
         foreach ($bundle_groups_raw as $group) {
             $available_products = [];
@@ -959,112 +729,71 @@ final class WC_Custom_Bundle_Framework {
                 }
             }
             $group['products'] = $available_products;
-            if (!empty($group['products'])) {
-                $bundle_groups_filtered[] = $group;
-            }
+            if (!empty($group['products'])) $bundle_groups_filtered[] = $group;
         }
-        
-        wc_get_template('single-product/add-to-cart/custom-bundle.php', [
-            'product' => $product, 
-            'bundle_groups' => $bundle_groups_filtered, 
-            'instructions' => get_post_meta($product->get_id(), '_bundle_instructions', true),
-        ], '', plugin_dir_path(__FILE__) . 'templates/');
+        wc_get_template('single-product/add-to-cart/custom-bundle.php', ['product' => $product, 'bundle_groups' => $bundle_groups_filtered, 'instructions' => get_post_meta($product->get_id(), '_bundle_instructions', true)], '', plugin_dir_path(__FILE__) . 'templates/');
     }
 
-    // --- FIX VISUALIZZAZIONE CARRELLO (Supporto Multi-Campo + Separate Items) ---
     public function display_bundle_selections_in_cart($item_data, $cart_item) {
-        // Logica per Bundle Unico
         if (!empty($cart_item['wcb_bundle_selections'])) {
-            $item_data = array_filter($item_data, function($data) {
-                return !isset($data['display']) || strpos($data['display'], 'wcb-bundle-item-meta') === false;
-            });
-
+            $item_data = array_filter($item_data, function($data) { return !isset($data['display']) || strpos($data['display'], 'wcb-bundle-item-meta') === false; });
             $item_data[] = ['key' => __('Contenuto del Bundle', 'wcb-framework'), 'display' => '', 'display_class' => 'wcb-bundle-item-meta'];
-            
             foreach ($cart_item['wcb_bundle_selections'] as $group_selections) {
                 foreach ($group_selections as $selection) {
                     $product = wc_get_product($selection['item_id']);
                     if ($product) {
                         $product_line = $product->get_formatted_name();
                         $item_data[] = ['key' => '', 'display' => $product_line, 'display_class' => 'wcb-bundle-item-meta'];
-                        
                         if (!empty($selection['personalization_data']) && is_array($selection['personalization_data'])) {
                             foreach($selection['personalization_data'] as $field) {
-                                if(!empty($field['value'])) {
-                                    $item_data[] = ['key' => '', 'display' => '<small style="padding-left: 15px;">' . esc_html($field['label']) . ': ' . esc_html($field['value']) . '</small>', 'display_class' => 'wcb-bundle-item-meta'];
-                                }
+                                if(!empty($field['value'])) $item_data[] = ['key' => '', 'display' => '<small style="padding-left: 15px;">' . esc_html($field['label']) . ': ' . esc_html($field['value']) . '</small>', 'display_class' => 'wcb-bundle-item-meta'];
                             }
                         }
                     }
                 }
             }
         }
-        
-        // NUOVO: Logica per Articoli Separati
         if (!empty($cart_item['wcb_item_personalization'])) {
             foreach($cart_item['wcb_item_personalization'] as $field) {
-                if(!empty($field['value'])) {
-                    $item_data[] = [
-                        'key'     => $field['label'],
-                        'display' => esc_html($field['value']),
-                    ];
-                }
+                if(!empty($field['value'])) $item_data[] = ['key' => $field['label'], 'display' => esc_html($field['value'])];
             }
         }
-        
         return $item_data;
     }
 
-    // --- FIX VISUALIZZAZIONE ORDINE (Supporto Multi-Campo + Separate Items) ---
     public function add_selections_to_order_items($item, $cart_item_key, $values, $order) {
-        // Logica Bundle Unico
         if (!empty($values['wcb_bundle_selections'])) {
             $item->add_meta_data('_wcb_bundle_selections_hidden', $values['wcb_bundle_selections'], true);
             $item->add_meta_data(__('Contenuto del Bundle', 'wcb-framework'), '', true);
-    
             $display_items = [];
             foreach ($values['wcb_bundle_selections'] as $group_selections) {
                 foreach ($group_selections as $selection) {
                     $product = wc_get_product($selection['item_id']);
                     if ($product) {
-                        // Creazione chiave unica basata su ID + Dati Personalizzati
                         $unique_key = $selection['item_id'] . json_encode($selection['personalization_data'] ?? []);
                         if (!isset($display_items[$unique_key])) {
-                            $display_items[$unique_key] = [
-                                'product_name' => $product->get_formatted_name(), 
-                                'personalization_data' => $selection['personalization_data'] ?? [],
-                                'quantity' => 0
-                            ];
+                            $display_items[$unique_key] = ['product_name' => $product->get_formatted_name(), 'personalization_data' => $selection['personalization_data'] ?? [], 'quantity' => 0];
                         }
                         $display_items[$unique_key]['quantity']++;
                     }
                 }
             }
-            
             foreach ($display_items as $display_item) {
                 $display_line = $display_item['product_name'];
                 if ($display_item['quantity'] > 1) $display_line .= ' &times; ' . $display_item['quantity'];
-                
                 if (!empty($display_item['personalization_data']) && is_array($display_item['personalization_data'])) {
                     $details = [];
                     foreach($display_item['personalization_data'] as $field) {
-                        if(!empty($field['value'])) {
-                            $details[] = $field['label'] . ': ' . $field['value'];
-                        }
+                        if(!empty($field['value'])) $details[] = $field['label'] . ': ' . $field['value'];
                     }
                     if(!empty($details)) $display_line .= ' | ' . implode(', ', $details);
                 }
-                
                 $item->add_meta_data(':>', $display_line, false);
             }
         }
-        
-        // NUOVO: Logica Articoli Separati
         if ( ! empty( $values['wcb_item_personalization'] ) && is_array($values['wcb_item_personalization']) ) {
             foreach($values['wcb_item_personalization'] as $field) {
-                if(!empty($field['value'])) {
-                    $item->add_meta_data( $field['label'], $field['value'] );
-                }
+                if(!empty($field['value'])) $item->add_meta_data( $field['label'], $field['value'] );
             }
         }
     }
@@ -1078,7 +807,7 @@ final class WC_Custom_Bundle_Framework {
                     unset($cart->cart_contents[$key]['wcb_bundle_part_of']);
                     unset($cart->cart_contents[$key]['wcb_parent_bundle_id']);
                     unset($cart->cart_contents[$key]['wcb_bundle_configuration']);
-                    unset($cart->cart_contents[$key]['wcb_source_group_index']); // Clean up new meta
+                    unset($cart->cart_contents[$key]['wcb_source_group_index']);
                 }
             }
         }
@@ -1098,98 +827,84 @@ final class WC_Custom_Bundle_Framework {
                 }
                 foreach ($quantities_to_reduce as $product_id => $quantity) {
                     $child_product = wc_get_product($product_id);
-                    if ($child_product && $child_product->managing_stock()) {
-                        wc_update_product_stock($child_product, $quantity, 'decrease');
-                    }
+                    if ($child_product && $child_product->managing_stock()) wc_update_product_stock($child_product, $quantity, 'decrease');
                 }
             }
         }
     }
     
+    // =========================================================================
+    // LOGICA PREZZI AVANZATA (ARCHITECT FIX)
+    // =========================================================================
     public function calculate_bundle_price_in_cart($cart) {
         if (is_admin() && !defined('DOING_AJAX')) return;
 
-        // Reset prezzi base
+        // FASE 1: Pre-calcolo Totali Gruppi (Regolare)
+        $bundle_group_totals = []; 
         foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
             if (isset($cart_item['wcb_bundle_part_of'])) {
-                $original_product = wc_get_product($cart_item['data']->get_id());
-                if ($original_product) $cart->cart_contents[$cart_item_key]['data']->set_price($original_product->get_price());
+                $product_id = $cart_item['data']->get_id();
+                $original_product = wc_get_product($product_id);
+                if ($original_product) {
+                    $reg_price = floatval($original_product->get_regular_price());
+                    $cart->cart_contents[$cart_item_key]['data']->set_price($reg_price);
+                    
+                    $bundle_id = $cart_item['wcb_bundle_part_of'];
+                    $group_idx = $cart_item['wcb_source_group_index'] ?? null;
+                    if ($group_idx !== null) {
+                        if (!isset($bundle_group_totals[$bundle_id][$group_idx])) $bundle_group_totals[$bundle_id][$group_idx] = 0;
+                        $bundle_group_totals[$bundle_id][$group_idx] += $reg_price * $cart_item['quantity'];
+                    }
+                }
             }
         }
 
+        // FASE 2: Applicazione Override Distribuito
         $separate_bundles = [];
         foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
-            if (isset($cart_item['wcb_bundle_part_of'])) {
-                $bundle_cart_id = $cart_item['wcb_bundle_part_of'];
-                $separate_bundles[$bundle_cart_id][$cart_item_key] = $cart_item;
-            }
+            if (isset($cart_item['wcb_bundle_part_of'])) $separate_bundles[$cart_item['wcb_bundle_part_of']][$cart_item_key] = $cart_item;
         }
 
         foreach ($separate_bundles as $bundle_cart_id => $items) {
             $first_item = reset($items);
             if (!isset($first_item['wcb_parent_bundle_id'])) continue;
-            
             $parent_bundle_id = $first_item['wcb_parent_bundle_id'];
             $bundle_groups = get_post_meta($parent_bundle_id, '_bundle_groups', true); 
 
-            // Applica Prezzi Override (Item > Group)
             foreach ($items as $cart_item_key => $cart_item_data) {
                 $product_id = $cart_item_data['data']->get_id();
-                
-                // CORREZIONE CRITICA: Usiamo wcb_source_group_index se disponibile per individuare
-                // esattamente da quale gruppo proviene l'articolo.
                 $source_group_idx = $cart_item_data['wcb_source_group_index'] ?? null;
                 
                 if ($source_group_idx !== null && isset($bundle_groups[$source_group_idx])) {
-                    // Logica precisa per "Separate Items" con il nuovo metadato
                     $group_config = $bundle_groups[$source_group_idx];
                     $item_settings = $group_config['products_settings'][$product_id] ?? [];
                     
                     if (isset($item_settings['price']) && $item_settings['price'] !== '') {
                         $cart->cart_contents[$cart_item_key]['data']->set_price(floatval($item_settings['price']));
                     } elseif (isset($group_config['price_override']) && $group_config['price_override'] !== '') {
-                        $cart->cart_contents[$cart_item_key]['data']->set_price(floatval($group_config['price_override']));
-                    }
-
-                } else {
-                    // Logica Fallback (Vecchia/Incompleta) - cerca a caso nella ricetta.
-                    // Mantenuta solo se wcb_source_group_index non esiste per qualche motivo.
-                    $bundle_recipe = $cart_item_data['wcb_bundle_configuration'] ?? [];
-                    foreach ($bundle_recipe as $group_idx => $selections) {
-                        $found = false;
-                        foreach ($selections as $sel) {
-                            if ($sel['item_id'] == $product_id) {
-                                $group_config = $bundle_groups[$group_idx] ?? [];
-                                $item_settings = $group_config['products_settings'][$product_id] ?? [];
-                                
-                                if (isset($item_settings['price']) && $item_settings['price'] !== '') {
-                                    $cart->cart_contents[$cart_item_key]['data']->set_price(floatval($item_settings['price']));
-                                    $found = true;
-                                } elseif (isset($group_config['price_override']) && $group_config['price_override'] !== '') {
-                                    $cart->cart_contents[$cart_item_key]['data']->set_price(floatval($group_config['price_override']));
-                                    $found = true;
-                                }
-                                break;
-                            }
+                        $target_total = floatval($group_config['price_override']);
+                        $actual_total = $bundle_group_totals[$bundle_cart_id][$source_group_idx] ?? 0;
+                        
+                        if ($actual_total > 0) {
+                            $ratio = $target_total / $actual_total;
+                            $regular_price_this_item = floatval($cart_item_data['data']->get_regular_price());
+                            $new_price = $regular_price_this_item * $ratio;
+                            $cart->cart_contents[$cart_item_key]['data']->set_price($new_price);
                         }
-                        if ($found) break; 
                     }
                 }
             }
-
-            $pricing_type = get_post_meta($parent_bundle_id, '_bundle_pricing_type', true);
             
+            // FASE 2B: Sconti Globali Bundle
+            $pricing_type = get_post_meta($parent_bundle_id, '_bundle_pricing_type', true);
             $current_bundle_subtotal = 0;
             foreach ($items as $cart_item_key => $item) {
                  $current_bundle_subtotal += floatval($cart->cart_contents[$cart_item_key]['data']->get_price()) * $item['quantity'];
             }
 
-            $bundle_final_price = 0;
-
             if ($pricing_type === 'fixed') {
                 $bundle_product = wc_get_product($parent_bundle_id);
                 $bundle_final_price = floatval($bundle_product->get_price());
-                
                 if ($current_bundle_subtotal > 0) {
                     $discount_ratio = $bundle_final_price / $current_bundle_subtotal;
                     foreach ($items as $key => $item) {
@@ -1200,9 +915,7 @@ final class WC_Custom_Bundle_Framework {
             } else { 
                 $discount_percentage = floatval(get_post_meta($parent_bundle_id, '_bundle_discount_percentage', true));
                 $discount_amount = floatval(get_post_meta($parent_bundle_id, '_bundle_discount_amount', true));
-                
                 $subtotal = $current_bundle_subtotal;
-                
                 if ($discount_percentage > 0) $subtotal *= (1 - ($discount_percentage / 100));
                 if ($discount_amount > 0) $subtotal -= $discount_amount;
                 $bundle_final_price = max(0, $subtotal);
@@ -1217,6 +930,7 @@ final class WC_Custom_Bundle_Framework {
             }
         }
 
+        // FASE 3: Bundle Unico (Non Separato)
         foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
             if ('custom_bundle' === $cart_item['data']->get_type() && !empty($cart_item['wcb_bundle_selections'])) {
                 $product_id = $cart_item['product_id'];
@@ -1225,27 +939,19 @@ final class WC_Custom_Bundle_Framework {
                 if ('calculated' === $pricing_type) {
                     $calculated_price = 0;
                     $bundle_groups = get_post_meta($product_id, '_bundle_groups', true);
-                    
                     foreach ($cart_item['wcb_bundle_selections'] as $group_index => $group_selections) {
                         $group_config = $bundle_groups[$group_index] ?? [];
-                        
-                        // FIX: Applicazione override prezzo (Group level) anche per Bundle "Unico"
                         $group_price_override = isset($group_config['price_override']) && $group_config['price_override'] !== '' ? floatval($group_config['price_override']) : null;
 
-                        foreach ($group_selections as $selection) {
-                            $child_product = wc_get_product($selection['item_id']);
-                            if (!$child_product) continue;
-                            
-                            // FIX: Check Override Prodotto Specifico
-                            $prod_settings = $group_config['products_settings'][$selection['item_id']] ?? [];
-                            $item_price_override = isset($prod_settings['price']) && $prod_settings['price'] !== '' ? floatval($prod_settings['price']) : null;
-
-                            if ($item_price_override !== null) {
-                                $calculated_price += $item_price_override;
-                            } elseif ($group_price_override !== null) {
-                                $calculated_price += $group_price_override;
-                            } else {
-                                $calculated_price += floatval($child_product->get_price());
+                        if ($group_price_override !== null) {
+                             $calculated_price += $group_price_override;
+                        } else {
+                            foreach ($group_selections as $selection) {
+                                $child_product = wc_get_product($selection['item_id']);
+                                if (!$child_product) continue;
+                                $prod_settings = $group_config['products_settings'][$selection['item_id']] ?? [];
+                                $item_price_override = isset($prod_settings['price']) && $prod_settings['price'] !== '' ? floatval($prod_settings['price']) : null;
+                                $calculated_price += ($item_price_override !== null) ? $item_price_override : floatval($child_product->get_price());
                             }
                         }
                     }
@@ -1256,14 +962,13 @@ final class WC_Custom_Bundle_Framework {
                     $cart_item['data']->set_price(max(0, $calculated_price));
                 } elseif ('fixed' === $pricing_type) {
                      $bundle_product = wc_get_product($product_id);
-                     if ($bundle_product) {
-                        $cart_item['data']->set_price(floatval($bundle_product->get_price()));
-                     }
+                     if ($bundle_product) $cart_item['data']->set_price(floatval($bundle_product->get_price()));
                 }
             }
         }
     }
     
+    // Funzioni per tema moderno (Spostate QUI dentro la classe)
     public function add_admin_modern_class($classes) {
         if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
             $classes .= ' wcb-modern-theme';
@@ -1271,7 +976,6 @@ final class WC_Custom_Bundle_Framework {
         return $classes;
     }
     
-    // Aggiungi classe moderna al frontend
     public function add_frontend_modern_class($classes) {
         if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
             if (is_product()) {
@@ -1283,6 +987,5 @@ final class WC_Custom_Bundle_Framework {
         }
         return $classes;
     }
-
 }
 WC_Custom_Bundle_Framework::get_instance();

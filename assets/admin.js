@@ -1,5 +1,5 @@
 /*
- * asset/admin.js - Versione 2.3.6
+ * asset/admin.js - Versione 2.4.6
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -106,26 +106,29 @@ jQuery(document).ready(function($) {
                     imageUrl = wc_enhanced_select_params.ajax_url.replace('/admin-ajax.php', '/images/placeholder.png');
                 }
 
-                // Recupera dati esistenti (se ricaricamento pagina)
+                // Recupera dati esistenti
                 const $preload = $group.find(`.wcb-preload-data[data-id="${pid}"]`);
                 const savedMin = $preload.data('min') || 1;
                 const savedStep = $preload.data('step') || 1;
+                const savedDefaultQty = $preload.data('default-qty') || 1; // NUOVO
                 const savedPrice = $preload.data('price') || '';
 
-                // NOTA: Aggiunte classi wcb-setting-min e wcb-setting-step per gestione visibilità
+                // HTML Aggiornato con campo Qty Fissa
                 const rowHtml = `
                     <div class="wcb-product-setting-row" data-product-id="${pid}">
                         <div class="wcb-row-thumb"><img src="${imageUrl}" width="40"></div>
                         <div class="wcb-row-name"><strong>${product.text}</strong><br><small>ID: ${pid}</small></div>
                         <div class="wcb-row-inputs">
-                            <label class="wcb-setting-min">Min: <input type="number" name="_bundle_groups[${groupIndex}][products_settings][${pid}][min_qty]" value="${savedMin}" min="0" class="tiny-input"></label>
-                            <label class="wcb-setting-step">Step: <input type="number" name="_bundle_groups[${groupIndex}][products_settings][${pid}][step]" value="${savedStep}" min="1" class="tiny-input"></label>
+                            <label class="wcb-setting-min">Min: <input type="number" name="_bundle_groups[${groupIndex}][products_settings][${pid}][min_qty]" value="${savedMin}" min="0" class="tiny-input" title="Minima quantità selezionabile dall'utente"></label>
+                            <label class="wcb-setting-step">Step: <input type="number" name="_bundle_groups[${groupIndex}][products_settings][${pid}][step]" value="${savedStep}" min="1" class="tiny-input" title="Incrementi (es. 1, 10, 50)"></label>
+                            <label class="wcb-setting-fixed" style="border-left:1px solid #ddd; padding-left:5px; margin-left:5px;">
+                                Q.tà Fissa: <input type="number" name="_bundle_groups[${groupIndex}][products_settings][${pid}][default_qty]" value="${savedDefaultQty}" min="1" class="tiny-input" style="border-color:#2271b1;" title="Quantità fissa (moltiplicatore) quando selezionato">
+                            </label>
                             <label>Prezzo: <input type="text" name="_bundle_groups[${groupIndex}][products_settings][${pid}][price]" value="${savedPrice}" placeholder="€" class="wc_input_price"></label>
                         </div>
                         <div class="wcb-row-actions"><button type="button" class="wcb-remove-product-row">&times;</button></div>
                     </div>`;
-                $settingsContainer.append(rowHtml);
-            }
+                $settingsContainer.append(rowHtml);            }
         });
         
         if (currentIds.length === 0) $settingsContainer.html('<p style="padding:10px; color:#666;">Cerca e seleziona i prodotti qui sopra.</p>');
@@ -231,7 +234,8 @@ jQuery(document).ready(function($) {
             products.forEach(p => {
                 optionsHtml += `<option value="${p.id}" data-image-url="${p.image_url}" selected="selected">${p.text}</option>`;
                 const pSet = products_settings[p.id] || {};
-                preloadHtml += `<div class="wcb-preload-data" data-id="${p.id}" data-min="${pSet.min_qty||1}" data-step="${pSet.step||1}" data-price="${pSet.price||''}" style="display:none;"></div>`;
+                preloadHtml += `<div class="wcb-preload-data" data-id="${p.id}" data-min="${pSet.min_qty||1}" data-step="${pSet.step||1}" data-default-qty="${pSet.default_qty||1}" data-price="${pSet.price||''}" style="display:none;"></div>`;
+                //preloadHtml += `<div class="wcb-preload-data" data-id="${p.id}" data-min="${pSet.min_qty||1}" data-step="${pSet.step||1}" data-price="${pSet.price||''}" style="display:none;"></div>`;
             });
         }
 
@@ -326,6 +330,9 @@ jQuery(document).ready(function($) {
         toggleProductSettingsVisibility($newGroup);
         
         updateProductExclusions();
+        
+        // ARCHITECT FIX: Trigger evento per UI Moderna
+        $(document).trigger('wcb_group_added', [$newGroup]);
     });
 
     $('#expand_all_groups').on('click', function() { $('.bundle-group.closed').removeClass('closed').find('.group-content').slideDown(300); });

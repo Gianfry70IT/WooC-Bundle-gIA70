@@ -1,5 +1,5 @@
 /*
- * asset/frontend.css - Versione 2.3.6
+ * asset/frontend.css - Versione 2.4.6
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -173,6 +173,73 @@
 }
 .wcb-product-thumbnail img:hover { transform: scale(1.02); border-color: #0073aa; }
 
+/* Container relativo per posizionare le frecce */
+.wcb-gallery-wrapper {
+    position: relative;
+    overflow: hidden;
+    width: 280px !important;
+    height: 320px !important;
+    margin: 0 auto; /* Centrato */
+    background: #fff;
+    border-radius: 8px; /* Opzionale: stondatura */
+}
+
+/* Immagini: di base nascoste, tranne quella attiva */
+.wcb-thumbnail-image {
+    display: none !important; /* Forza il nascondimento contro ogni stile del tema */
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: opacity 0.2s ease;
+}
+
+.wcb-thumbnail-image.active {
+    display: block !important; /* Forza la visualizzazione */
+}
+
+/* Navigazione Frecce */
+.wcb-gallery-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    width: 30px; /* Leggermente più grandi per il dito */
+    height: 30px;
+    line-height: 28px;
+    text-align: center;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    z-index: 90; /* Z-index alto per stare sopra l'immagine */
+    opacity: 0; 
+    transition: opacity 0.2s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Mostra frecce in hover */
+.wcb-gallery-wrapper:hover .wcb-gallery-nav {
+    opacity: 1;
+}
+
+.wcb-prev { left: 5px; }
+.wcb-next { right: 5px; }
+
+/* Contatore */
+.wcb-gallery-counter {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 90;
+}
+
 /* --- INFO COLONNA & INPUT NUMERO (MODIFICA APPLICATA) --- */
 .wcb-product-info { 
     flex-grow: 1; 
@@ -189,6 +256,17 @@
 .wcb-qty-wrapper {
     margin-top: 10px;
     width: 100%;
+}
+
+.wcb-qty-badge {
+    background: #2271b1;
+    color: white;
+    font-size: 0.85em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    margin-right: 5px;
+    vertical-align: middle;
 }
 
 .wcb-quantity-input { 
@@ -476,7 +554,12 @@ tr.cart_item.wcb-group-start td, tr.cart_item.wcb-group-middle td { border-botto
     }
 }
 
-/* ... (Stili precedenti invariati) ... */
+/* MOBILE FIX: Frecce sempre visibili su schermi piccoli */
+@media (max-width: 768px) {
+    .wcb-gallery-nav {
+        opacity: 1 !important;
+    }
+}
 
 /* --- NUOVO: Tabella Configurazione Prodotti (Min/Step/Price) --- */
 .wcb-products-section {
