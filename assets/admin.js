@@ -1,5 +1,5 @@
 /*
- * asset/admin.js - Versione 2.4.6
+ * asset/admin.js - Versione 2.4.9
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -29,27 +29,40 @@ jQuery(document).ready(function($) {
             const $minLabel = $row.find('.wcb-row-inputs label:has(.tiny-input[name*="[min_qty]"])');
             const $stepLabel = $row.find('.wcb-row-inputs label:has(.tiny-input[name*="[step]"])');
             
-            if (showProductMinStep) {
-                $minLabel.show();
-                $stepLabel.show();
-            } else {
-                $minLabel.hide();
-                $stepLabel.hide();
-            }
+            if (showProductMinStep) { $minLabel.show(); $stepLabel.show(); } 
+            else { $minLabel.hide(); $stepLabel.hide(); }
         });
     }
     
     function togglePriceOverrideVisibility($group) {
         const mode = $group.find('select.selection-mode-select').val();
-        const $priceOverrideField = $group.find('input[name*="[price_override]"]').closest('.form-field');
+        const $priceOverrideInput = $group.find('input[name*="[price_override]"]');
+        const $priceOverrideField = $priceOverrideInput.closest('.form-field');
+        const $priceBehaviorField = $group.find('select[name*="[show_price_behavior]"]').closest('.form-field');
         
-        // Mostra il prezzo override solo per modalità che lo supportano
+        // 1. Mostra il campo "Prezzo Override" solo se modalità supportata
         if (mode === 'single' || mode === 'multiple') {
             $priceOverrideField.show();
+            
+            // 2. Mostra "Comportamento Prezzi" SOLO se c'è un valore nel prezzo override
+            // Usiamo una regex per accettare numeri e virgole, ignorando spazi vuoti
+            const val = $priceOverrideInput.val().trim();
+            if (val !== '') {
+                $priceBehaviorField.fadeIn(200);
+            } else {
+                $priceBehaviorField.hide();
+            }
         } else {
             $priceOverrideField.hide();
+            $priceBehaviorField.hide();
         }
     }
+
+    // --- AGGIUNGI QUESTI LISTENER ---
+    // Intercetta la digitazione nel prezzo per mostrare/nascondere il selettore in tempo reale
+    $groupsContainer.on('keyup change', 'input[name*="[price_override]"]', function() {
+        togglePriceOverrideVisibility($(this).closest('.bundle-group'));
+    });
     
     $('.bundle-group').each(function() {
         const $group = $(this);
@@ -57,26 +70,26 @@ jQuery(document).ready(function($) {
         togglePriceOverrideVisibility($group);
     });
     
-    // AGGIUNGI al change del selection-mode-select:
+    // Listener su cambio modalità
     $groupsContainer.on('change', '.selection-mode-select', function() {
         const $group = $(this).closest('.bundle-group');
         const mode = $(this).val();
         
-        // Toggle Regole Generali (esistenti)
         $group.find('.rule-field').hide();
         $group.find('.rule-multiple').toggle(mode === 'multiple' || mode === 'multiple_quantity');
         $group.find('.rule-quantity').toggle(mode === 'quantity');
         
-        // Toggle Settings Prodotti (Min/Step)
         toggleProductSettingsVisibility($group);
         togglePriceOverrideVisibility($group);
     });
+
+    // Listener su digitazione prezzo override (Live toggle)
+    $groupsContainer.on('keyup change', 'input[name*="[price_override]"]', function() {
+        togglePriceOverrideVisibility($(this).closest('.bundle-group'));
+    });
         
     jQuery(document).ready(function($) {
-        // Applica la visibilità corretta a tutti i gruppi all'inizio
-        $('.bundle-group').each(function() {
-            toggleProductSettingsVisibility($(this));
-        });
+        $('.bundle-group').each(function() { toggleProductSettingsVisibility($(this)); });
     });
 
     // --- RENDER TABELLA ---
@@ -85,15 +98,12 @@ jQuery(document).ready(function($) {
         const $select = $group.find('select.wc-product-search');
         const selectedData = $select.select2('data') || [];
         const groupIndex = $group.attr('data-group-index');
-
         const currentIds = selectedData.map(p => p.id.toString());
 
-        // Rimuovi non selezionati
         $settingsContainer.find('.wcb-product-setting-row').each(function() {
             if (!currentIds.includes($(this).attr('data-product-id'))) $(this).remove();
         });
 
-        // Aggiungi nuovi
         selectedData.forEach(function(product) {
             const pid = product.id.toString();
             if ($settingsContainer.find(`.wcb-product-setting-row[data-product-id="${pid}"]`).length === 0) {
@@ -106,14 +116,12 @@ jQuery(document).ready(function($) {
                     imageUrl = wc_enhanced_select_params.ajax_url.replace('/admin-ajax.php', '/images/placeholder.png');
                 }
 
-                // Recupera dati esistenti
                 const $preload = $group.find(`.wcb-preload-data[data-id="${pid}"]`);
                 const savedMin = $preload.data('min') || 1;
                 const savedStep = $preload.data('step') || 1;
-                const savedDefaultQty = $preload.data('default-qty') || 1; // NUOVO
+                const savedDefaultQty = $preload.data('default-qty') || 1; 
                 const savedPrice = $preload.data('price') || '';
 
-                // HTML Aggiornato con campo Qty Fissa
                 const rowHtml = `
                     <div class="wcb-product-setting-row" data-product-id="${pid}">
                         <div class="wcb-row-thumb"><img src="${imageUrl}" width="40"></div>
@@ -132,16 +140,12 @@ jQuery(document).ready(function($) {
         });
         
         if (currentIds.length === 0) $settingsContainer.html('<p style="padding:10px; color:#666;">Cerca e seleziona i prodotti qui sopra.</p>');
-        
-        // FORZA AGGIORNAMENTO VISIBILITÀ DOPO IL RENDER
         toggleProductSettingsVisibility($group);
     }
 
-    // --- FIX CRITICO RICERCA E BACKSPACE ---
     function initEnhancedSelect($target) {
         $target.each(function() {
             if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
-            
             var $element = $(this);
             var ajaxUrl = (typeof wc_enhanced_select_params !== 'undefined') ? wc_enhanced_select_params.ajax_url : ajaxurl;
 
@@ -149,7 +153,7 @@ jQuery(document).ready(function($) {
                 allowClear: false,
                 placeholder: $(this).data('placeholder'),
                 minimumInputLength: 3,
-                closeOnSelect: false, // Mantiene aperto dopo la selezione per aggiungerne altri
+                closeOnSelect: false,
                 escapeMarkup: markup => markup,
                 templateResult: formatProduct,
                 templateSelection: formatProductSelection,
@@ -159,7 +163,7 @@ jQuery(document).ready(function($) {
                     delay: 250,
                     data: params => ({
                         term: params.term,
-                        action: 'wcb_custom_product_search', // Hardcoded action name for safety
+                        action: 'wcb_custom_product_search', 
                         security: (typeof wc_enhanced_select_params !== 'undefined') ? wc_enhanced_select_params.search_products_nonce : '',
                         exclude: $element.attr('data-exclude') || ''
                     }),
@@ -173,25 +177,16 @@ jQuery(document).ready(function($) {
                 }
             });
 
-            // --- FIX BACKSPACE CHE CANCELLA PRODOTTI ---
-            // Intercetta il tasto keydown sul campo di ricerca DOPO che select2 è stato inizializzato
             $element.on('select2:open', function() {
                 $('.select2-container--open .select2-search__field').off('keydown.wcb').on('keydown.wcb', function(e) {
-                    // Se premi Backspace (8) e il campo è vuoto -> STOP
-                    if (e.which === 8 && $(this).val().length === 0) {
-                        e.stopImmediatePropagation();
-                        e.stopPropagation();
-                        return false; 
-                    }
+                    if (e.which === 8 && $(this).val().length === 0) { e.stopImmediatePropagation(); e.stopPropagation(); return false; }
                 });
                 $('.select2-container--open').addClass('wcb-select2-open');
             });
-
             $element.addClass('enhanced');
         });
     }
 
-    // --- COMMON UTILS ---
     function updateProductExclusions() {
         const allSelectedIds = Array.from($groupsContainer.find('select.wc-product-search option:selected')).map(el => el.value);
         $groupsContainer.find('select.wc-product-search').attr('data-exclude', allSelectedIds.join(','));
@@ -206,7 +201,6 @@ jQuery(document).ready(function($) {
         });
     }
 
-    // --- HTML GENERATOR ---
     function getGroupHtml(groupIndex, data = {}) {
         const title = data.title || '';
         const min_qty = data.min_qty || 1; const max_qty = data.max_qty || 0; const total_qty = data.total_qty || 1;
@@ -214,6 +208,7 @@ jQuery(document).ready(function($) {
         const is_required = data.is_required === 'no' ? '' : 'checked';
         const products = data.products || [];
         const price_override = data.price_override || '';
+        const show_price_behavior = data.show_price_behavior || 'default';
         const personalization_enabled = data.personalization_enabled === 'yes' ? 'checked' : '';
         const products_settings = data.products_settings || {};
 
@@ -227,7 +222,7 @@ jQuery(document).ready(function($) {
 
         if (data.personalization_fields && Array.isArray(data.personalization_fields)) {
             data.personalization_fields.forEach((f, i) => fieldsHtml += generateFieldRow('f_'+new Date().getTime()+'_'+i, f.label, f.required));
-        } else if (data.personalization_label) fieldsHtml += generateFieldRow('f_'+new Date().getTime(), data.personalization_label, data.personalization_required);
+        }
 
         let optionsHtml = ''; let preloadHtml = '';
         if (products.length > 0) {
@@ -235,7 +230,6 @@ jQuery(document).ready(function($) {
                 optionsHtml += `<option value="${p.id}" data-image-url="${p.image_url}" selected="selected">${p.text}</option>`;
                 const pSet = products_settings[p.id] || {};
                 preloadHtml += `<div class="wcb-preload-data" data-id="${p.id}" data-min="${pSet.min_qty||1}" data-step="${pSet.step||1}" data-default-qty="${pSet.default_qty||1}" data-price="${pSet.price||''}" style="display:none;"></div>`;
-                //preloadHtml += `<div class="wcb-preload-data" data-id="${p.id}" data-min="${pSet.min_qty||1}" data-step="${pSet.step||1}" data-price="${pSet.price||''}" style="display:none;"></div>`;
             });
         }
 
@@ -266,7 +260,16 @@ jQuery(document).ready(function($) {
                     <p class="form-field half-width rule-field rule-multiple" style="display:${['multiple','multiple_quantity'].includes(selection_mode)?'block':'none'}"><label>Min Qty</label><input type="number" name="_bundle_groups[${groupIndex}][min_qty]" value="${min_qty}" min="0"></p>
                     <p class="form-field half-width rule-field rule-multiple" style="display:${['multiple','multiple_quantity'].includes(selection_mode)?'block':'none'}"><label>Max Qty</label><input type="number" name="_bundle_groups[${groupIndex}][max_qty]" value="${max_qty}" min="0"></p>
                     <p class="form-field rule-field rule-quantity" style="display:${selection_mode==='quantity'?'block':'none'}"><label>Totale Esatto</label><input type="number" name="_bundle_groups[${groupIndex}][total_qty]" value="${total_qty}" min="1"></p>
-                    <p class="form-field"><label>Prezzo Override Gruppo (€)</label><input type="text" name="_bundle_groups[${groupIndex}][price_override]" value="${price_override}" class="wc_input_price"></p>
+                    
+                    <p class="form-field"><label>Prezzo Override Gruppo (€)</label><input type="text" name="_bundle_groups[${groupIndex}][price_override]" value="${price_override}" class="wc_input_price" placeholder="Opzionale"></p>
+                    
+                    <p class="form-field" style="display:none;"><label>Mostra Prezzi Item</label>
+                        <select name="_bundle_groups[${groupIndex}][show_price_behavior]">
+                            <option value="default" ${show_price_behavior === 'default' ? 'selected' : ''}>Default (Usa Globali)</option>
+                            <option value="show" ${show_price_behavior === 'show' ? 'selected' : ''}>Mostra Sempre</option>
+                            <option value="hide" ${show_price_behavior === 'hide' ? 'selected' : ''}>Nascondi Sempre</option>
+                        </select>
+                    </p>
                 </div>
 
                 <hr/><h4>Personalizzazione</h4>
@@ -299,11 +302,11 @@ jQuery(document).ready(function($) {
 
     initEnhancedSelect($('.wc-product-search'));
     
-    // --- FIX: ESEGUI RENDER SU TUTTI I GRUPPI ESISTENTI AL CARICAMENTO ---
     $('.bundle-group').each(function() { 
         const $group = $(this);
         renderProductSettings($group); 
-        toggleProductSettingsVisibility($group); // Forza check iniziale
+        toggleProductSettingsVisibility($group);
+        togglePriceOverrideVisibility($group);
     });
     
     updateProductExclusions();
@@ -325,13 +328,11 @@ jQuery(document).ready(function($) {
         $groupsContainer.append($newGroup);
         initEnhancedSelect($newGroup.find('select.wc-product-search'));
         
-        // Render e Toggle immediato per il nuovo gruppo
         renderProductSettings($newGroup);
         toggleProductSettingsVisibility($newGroup);
+        togglePriceOverrideVisibility($newGroup);
         
         updateProductExclusions();
-        
-        // ARCHITECT FIX: Trigger evento per UI Moderna
         $(document).trigger('wcb_group_added', [$newGroup]);
     });
 
@@ -353,19 +354,6 @@ jQuery(document).ready(function($) {
         let selected = $select.val() || [];
         selected = selected.filter(id => id !== pid);
         $select.val(selected).trigger('change');
-    });
-
-    $groupsContainer.on('change', '.selection-mode-select', function() {
-        const $group = $(this).closest('.bundle-group');
-        const mode = $(this).val();
-        
-        // Toggle Regole Generali
-        $group.find('.rule-field').hide();
-        $group.find('.rule-multiple').toggle(mode === 'multiple' || mode === 'multiple_quantity');
-        $group.find('.rule-quantity').toggle(mode === 'quantity');
-        
-        // Toggle Settings Prodotti (Min/Step)
-        toggleProductSettingsVisibility($group);
     });
 
     $groupsContainer.on('keyup', '.group-title-input', function() { $(this).closest('.bundle-group').find('.group-title').text($(this).val() || 'Nuovo Gruppo'); });

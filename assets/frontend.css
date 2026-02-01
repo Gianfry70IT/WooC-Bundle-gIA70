@@ -1,5 +1,5 @@
 /*
- * asset/frontend.css - Versione 2.4.6
+ * asset/frontend.css - Versione 2.4.7
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -70,6 +70,41 @@
     margin-bottom: 5px;
 }
 
+/* Stile Etichetta Sotto Prezzo */
+.wcb-price-sublabel {
+    font-size: 1em;
+    color: #666; /* O un colore di brand, es #d63384 per promo */
+    margin-bottom: 15px;
+    line-height: 1.3;
+    font-style: italic;
+    text-align:center;
+}
+
+/* Fix per Mobile Bar: Flex Column per il prezzo */
+.wcb-mobile-sticky-bar {
+    /* Assicurati che il display sia flex nel css originale */
+    align-items: center;
+}
+
+.wcb-mobile-price-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-right: auto; /* Spinge il bottone a destra */
+    text-align: center;
+}
+
+.wcb-price-sublabel.mobile {
+    font-size: 0.9em;
+    font-weight: 700;
+    margin-bottom: 0;
+    margin-top: 2px;
+    max-width: 200px; /* Evita che spinga via il bottone su schermi piccoli */
+    white-space: normal;
+    line-height: 1.1;
+    padding:5px;
+}
+
 .wcb-summary-actions .single_add_to_cart_button {
     width: 100%;
     margin-top: 10px;
@@ -121,6 +156,17 @@
 
 .wcb-group-title { font-size: 1.6em; margin-top: 0; margin-bottom: 10px; color: #23282d; font-weight: 700; }
 .wcb-group-description { font-style: normal; color: #666; margin-bottom: 25px; font-size: 0.95em; }
+
+.wcb-group-header-price {
+    font-size: 0.9em;
+    color: #2271b1; /* Colore standard WooCommerce o il tuo brand color */
+    background: #f0f6fc;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 10px;
+    font-weight: normal;
+    vertical-align: middle;
+}
 
 /* Item Prodotto */
 .wcb-product-item { 
@@ -442,6 +488,7 @@ body.wcb-lightbox-open { overflow: hidden; }
     .wcb-mobile-price .wcb-price-label {
         font-size: 10px;
         margin-bottom: 2px;
+        display: none;
     }
     
     .wcb-mobile-price .wcb-price-value {
@@ -474,7 +521,6 @@ tr.cart_item.wcb-group-start td, tr.cart_item.wcb-group-single td { border-top: 
 tr.cart_item.wcb-group-end td, tr.cart_item.wcb-group-single td { border-bottom: 2px solid #0073aa !important; }
 tr.cart_item.wcb-group-start td, tr.cart_item.wcb-group-middle td { border-bottom: 1px dashed #e0e0e0 !important; }
 
-/* ... Codice precedente invariato ... */
 
 /* --- HERO SECTION (NUOVO STILE BUNDLE HEADER) --- */
 .wcb-hero-section {

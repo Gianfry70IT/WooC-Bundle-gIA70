@@ -1,7 +1,9 @@
 /*
- * asset/frontend-modern.js - Versione 2.4.6
- * Tema Moderno Frontend WooC Bundle gIA70
- */
+ * asset/frontend-modern.js - Versione 2.4.7
+ * Author: Gianfranco Greco con Codice Sorgente
+ * Copyright (c) 2025 Gianfranco Greco
+ * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
+*/
 
 jQuery(document).ready(function($) {
     console.log('WooC Bundle Frontend Modern Theme v2.4.0 loaded');

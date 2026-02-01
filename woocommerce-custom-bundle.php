@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       WooC Bundle gIA70
  * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           2.4.6
- * Author:            gIA70 - Gianfranco Greco
+ * Version:           2.4.8
+ * Author:            gIA70 - Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       wcb-framework
@@ -36,24 +36,41 @@ class WCB_Theme_Settings {
     
     public function register_settings() {
         register_setting('wcb_theme_settings', 'wcb_enable_modern_theme', ['type' => 'boolean', 'default' => WCB_MODERN_THEME_DEFAULT, 'sanitize_callback' => 'rest_sanitize_boolean']);
+        // NUOVO: Setting Globale per Override Prezzi
+        register_setting('wcb_theme_settings', 'wcb_default_hide_override_price', ['type' => 'boolean', 'default' => true, 'sanitize_callback' => 'rest_sanitize_boolean']);
     }
     
     public function add_settings_page() {
-        add_submenu_page('woocommerce', __('WooC Bundle Theme Settings', 'wcb-framework'), __('Bundle Theme', 'wcb-framework'), 'manage_woocommerce', 'wcb-theme-settings', [$this, 'render_settings_page']);
+        add_submenu_page('woocommerce', __('WooC Bundle Settings', 'wcb-framework'), __('Bundle Settings', 'wcb-framework'), 'manage_woocommerce', 'wcb-theme-settings', [$this, 'render_settings_page']);
     }
     
     public function render_settings_page() {
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('WooC Bundle Theme Settings', 'wcb-framework'); ?></h1>
+            <h1><?php esc_html_e('WooC Bundle Global Settings', 'wcb-framework'); ?></h1>
             <form method="post" action="options.php">
                 <?php settings_fields('wcb_theme_settings'); ?>
                 <table class="form-table">
+                    <tr>
+                        <th scope="row"><strong>Tema Grafico</strong></th>
+                        <td></td>
+                    </tr>
                     <tr>
                         <th scope="row"><label for="wcb_enable_modern_theme"><?php esc_html_e('Tema Moderno', 'wcb-framework'); ?></label></th>
                         <td>
                             <label><input type="checkbox" id="wcb_enable_modern_theme" name="wcb_enable_modern_theme" value="1" <?php checked(get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)); ?>> <?php esc_html_e('Abilita il tema moderno per i bundle', 'wcb-framework'); ?></label>
                             <p class="description"><?php esc_html_e('Attiva interfaccia moderna con animazioni e design aggiornato.', 'wcb-framework'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><hr><strong>Comportamento Prezzi</strong></th>
+                        <td><hr></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="wcb_default_hide_override_price"><?php esc_html_e('Nascondi prezzi item in Override', 'wcb-framework'); ?></label></th>
+                        <td>
+                            <label><input type="checkbox" id="wcb_default_hide_override_price" name="wcb_default_hide_override_price" value="1" <?php checked(get_option('wcb_default_hide_override_price', true)); ?>> <?php esc_html_e('Nascondi prezzi singoli prodotti se il gruppo ha un prezzo imposto (Default)', 'wcb-framework'); ?></label>
+                            <p class="description"><?php esc_html_e('Questa impostazione è il default. Può essere sovrascritta nel singolo gruppo bundle.', 'wcb-framework'); ?></p>
                         </td>
                     </tr>
                 </table>
@@ -64,7 +81,7 @@ class WCB_Theme_Settings {
     }
     
     public function add_settings_link($links) {
-        array_unshift($links, '<a href="' . admin_url('admin.php?page=wcb-theme-settings') . '">' . __('Theme Settings', 'wcb-framework') . '</a>');
+        array_unshift($links, '<a href="' . admin_url('admin.php?page=wcb-theme-settings') . '">' . __('Settings', 'wcb-framework') . '</a>');
         return $links;
     }
 }
@@ -148,6 +165,7 @@ final class WC_Custom_Bundle_Framework {
         add_filter( 'plugin_row_meta', [ $this, 'add_plugin_meta_links' ], 10, 2 );
     }
     
+    // ... [METODI STANDARD INVARIATI: setup_bundle_layout, render_bundle_hero, etc...] ...
     public function setup_bundle_layout() {
         if ( is_product() ) {
             $product = wc_get_product( get_the_ID() );
@@ -522,8 +540,8 @@ final class WC_Custom_Bundle_Framework {
     public function enqueue_admin_scripts($hook) {
         global $post;
         if ('post-new.php' == $hook || ('post.php' == $hook && isset($post->post_type) && 'product' == $post->post_type)) {
-            wp_enqueue_style('wcb-admin-style', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '2.4.6');
-            wp_enqueue_script('wcb-admin-script', plugin_dir_url(__FILE__) . 'assets/admin.js', ['jquery', 'wc-enhanced-select', 'jquery-ui-sortable'], '2.4.6', true);
+            wp_enqueue_style('wcb-admin-style', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '2.4.7');
+            wp_enqueue_script('wcb-admin-script', plugin_dir_url(__FILE__) . 'assets/admin.js', ['jquery', 'wc-enhanced-select', 'jquery-ui-sortable'], '2.4.7', true);
             
             $bundle_groups_data = get_post_meta($post->ID, '_bundle_groups', true);
             if (!is_array($bundle_groups_data)) $bundle_groups_data = [];
@@ -545,17 +563,17 @@ final class WC_Custom_Bundle_Framework {
             }
             wp_localize_script('wcb-admin-script', 'wcb_bundle_data', ['groups' => $groups_for_js]);
             if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.css', ['wcb-admin-style'], '2.4.6');
-                wp_enqueue_script('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.js', ['wcb-admin-script'], '2.4.6', true);
+                wp_enqueue_style('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.css', ['wcb-admin-style'], '2.4.0');
+                wp_enqueue_script('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.js', ['wcb-admin-script'], '2.4.0', true);
             }
         }
     }
 
     public function enqueue_frontend_scripts() {
         if (is_product() && get_the_id() && wc_get_product(get_the_id())->get_type() === 'custom_bundle') {
-            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.4.6');
-            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.4.6', true);
-
+            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.4.7');
+            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.4.7', true);
+    
             $product_id = get_the_id();
             $pricing_data = [
                 'type' => get_post_meta($product_id, '_bundle_pricing_type', true),
@@ -619,20 +637,20 @@ final class WC_Custom_Bundle_Framework {
             ]);
             
             if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.6');
-                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.6', true);
+                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.0');
+                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.0', true);
             }
         }
         
         if (is_cart()) {
-            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.4.6');
-            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.4.6', true);
+            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.4.7');
+            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.4.7', true);
             wp_localize_script('wcb-frontend-script', 'wcb_params', [
                 'i18n' => ['confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework')]
             ]);
             if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.6');
-                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.6', true);
+                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.0');
+                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.0', true);
             }
         }
     }
@@ -671,7 +689,9 @@ final class WC_Custom_Bundle_Framework {
                     'personalization_enabled'  => isset($group['personalization_enabled']) ? 'yes' : 'no',
                     'personalization_fields'   => $personalization_fields, 
                     'products_settings'        => $products_settings,
-                    'price_override'           => wc_format_decimal($group['price_override'] ?? ''), 
+                    'price_override'           => wc_format_decimal($group['price_override'] ?? ''),
+                    // NUOVO: Salvataggio setting comportamento prezzi
+                    'show_price_behavior'      => sanitize_text_field($group['show_price_behavior'] ?? 'default'), 
                 ];
             }
             update_post_meta($post_id, '_bundle_groups', $groups_data);
@@ -682,9 +702,11 @@ final class WC_Custom_Bundle_Framework {
         update_post_meta($post_id, '_bundle_pricing_type', wc_clean($_POST['_bundle_pricing_type'] ?? 'fixed'));
         update_post_meta($post_id, '_bundle_discount_amount', wc_clean($_POST['_bundle_discount_amount'] ?? ''));
         update_post_meta($post_id, '_bundle_discount_percentage', wc_clean($_POST['_bundle_discount_percentage'] ?? ''));
+        update_post_meta($post_id, '_bundle_price_sublabel', wp_kses_post($_POST['_bundle_price_sublabel'] ?? ''));
         update_post_meta($post_id, '_bundle_add_as_separate_items', isset($_POST['_bundle_add_as_separate_items']) ? 'yes' : 'no');
     }
 
+    // [RESTO DELLA CLASSE INVARIATO...]
     public function add_bundle_pricing_fields() {
         echo '<div class="options_group show_if_custom_bundle">';
         woocommerce_wp_select(['id' => '_bundle_pricing_type', 'label' => __('Tipo di Prezzo Bundle', 'wcb-framework'), 'options' => ['fixed' => __('Prezzo Fisso', 'wcb-framework'), 'calculated' => __('Prezzo Calcolato', 'wcb-framework')], 'desc_tip' => true, 'description' => __('Scegli come calcolare il prezzo del bundle.', 'wcb-framework')]);
@@ -694,6 +716,16 @@ final class WC_Custom_Bundle_Framework {
         woocommerce_wp_text_input(['id' => '_bundle_discount_percentage', 'label' => __('Sconto Percentuale (%)', 'wcb-framework'), 'data_type' => 'decimal', 'desc_tip' => true, 'description' => __('Applica uno sconto percentuale sul totale calcolato dei prodotti.', 'wcb-framework')]);
         echo '</div>';
         woocommerce_wp_checkbox(['id' => '_bundle_add_as_separate_items', 'label' => __('Modalità Carrello', 'wcb-framework'), 'description' => __('Aggiungi i prodotti scelti come articoli separati nel carrello', 'wcb-framework'), 'desc_tip' => true]);
+        echo '<div class="options_group">';
+        woocommerce_wp_textarea_input([
+            'id'          => '_bundle_price_sublabel',
+            'label'       => __('Etichetta Sotto Prezzo', 'wcb-framework'),
+            'desc_tip'    => true,
+            'description' => __('Testo personalizzato da mostrare sotto il prezzo totale nel frontend (es. info sconti, codici promo).', 'wcb-framework'),
+            'style'       => 'height: 50px;',
+            'placeholder' => '(es. Sconto 20% applicabile al checkout)'
+        ]);
+        echo '</div>';
         echo '</div>';
     }
 
@@ -833,9 +865,27 @@ final class WC_Custom_Bundle_Framework {
         }
     }
     
-    // =========================================================================
+    // Funzioni per tema moderno (Spostate QUI dentro la classe)
+    public function add_admin_modern_class($classes) {
+        if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
+            $classes .= ' wcb-modern-theme';
+        }
+        return $classes;
+    }
+    
+    public function add_frontend_modern_class($classes) {
+        if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
+            if (is_product()) {
+                $product = wc_get_product(get_the_ID());
+                if ($product && $product->get_type() === 'custom_bundle') {
+                    $classes[] = 'wcb-modern-theme';
+                }
+            }
+        }
+        return $classes;
+    }
+    
     // LOGICA PREZZI AVANZATA (ARCHITECT FIX)
-    // =========================================================================
     public function calculate_bundle_price_in_cart($cart) {
         if (is_admin() && !defined('DOING_AJAX')) return;
 
@@ -966,26 +1016,6 @@ final class WC_Custom_Bundle_Framework {
                 }
             }
         }
-    }
-    
-    // Funzioni per tema moderno (Spostate QUI dentro la classe)
-    public function add_admin_modern_class($classes) {
-        if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-            $classes .= ' wcb-modern-theme';
-        }
-        return $classes;
-    }
-    
-    public function add_frontend_modern_class($classes) {
-        if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-            if (is_product()) {
-                $product = wc_get_product(get_the_ID());
-                if ($product && $product->get_type() === 'custom_bundle') {
-                    $classes[] = 'wcb-modern-theme';
-                }
-            }
-        }
-        return $classes;
     }
 }
 WC_Custom_Bundle_Framework::get_instance();

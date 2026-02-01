@@ -1,7 +1,9 @@
-/*
- * asset/frontend-modern.css - Versione 2.4.6
- * Tema Moderno WooC Bundle gIA70
- */
+ /*
+ * asset/frontend-modern.css - Versione 2.4.7
+ * Author: Gianfranco Greco con Codice Sorgente
+ * Copyright (c) 2025 Gianfranco Greco
+ * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
+*/
 
 /* ==========================================================================
    VARIABILI TEMA MODERNO
@@ -224,6 +226,15 @@ body.wcb-modern-theme .wcb-product-price {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+}
+
+/* FIX: Assicura che il testo "Incluso nel bundle" sia visibile e non trasparente */
+body.wcb-modern-theme .wcb-product-price span {
+    -webkit-text-fill-color: initial;
+    background: none;
+    color: #888; /* Grigio scuro per il testo informativo */
+    font-size: 0.7em;
+    font-weight: 600;
 }
 
 /* Input Quantità Moderno */

@@ -1,11 +1,16 @@
 <?php
 /*
- * templates/single-product/add-to-cart/custom-bundle.php - Versione 2.4.6 (Architect Fix)
+ * templates/single-product/add-to-cart/custom-bundle.php - Versione 2.4.9
  * Author: Gianfranco Greco con Codice Sorgente
+ * Copyright (c) 2025 Gianfranco Greco
+ * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
 */
 
 defined( 'ABSPATH' ) || exit;
 global $product;
+$price_sublabel = get_post_meta($product->get_id(), '_bundle_price_sublabel', true);
+// Recupero Default Globale per Nascondere Prezzi in Override
+$default_hide_override = get_option('wcb_default_hide_override_price', true);
 ?>
 
 <div id="wcb-ajax-messages"></div>
@@ -41,7 +46,27 @@ global $product;
                     $products_settings = $group['products_settings'] ?? [];
                     $group_price_override = isset($group['price_override']) && $group['price_override'] !== '' ? floatval($group['price_override']) : null;
                     
-                    // ARCHITECT FIX: Calcolo Visualizzazione Prezzo Gruppo Tassato
+                    // --- LOGICA OVERRIDE PREZZO E VISIBILITÀ (FIX 2.4.10) ---
+                    $group_price_override = null;
+                    if (isset($group['price_override']) && $group['price_override'] !== '') {
+                        // Accetta anche '0' come valore valido
+                        $group_price_override = floatval($group['price_override']);
+                    }
+                    
+                    $show_price_behavior = $group['show_price_behavior'] ?? 'default';
+                    $should_hide_prices = false;
+                    
+                    // Se c'è un override (anche 0.00), applichiamo la logica di visibilità
+                    if ($group_price_override !== null) {
+                        if ($show_price_behavior === 'hide') {
+                            $should_hide_prices = true;
+                        } elseif ($show_price_behavior === 'default') {
+                            $should_hide_prices = $default_hide_override; // Usa il default globale
+                        }
+                        // Se è 'show', rimane false
+                    }
+
+                    // Calcolo Visualizzazione Prezzo Gruppo Tassato (per Header)
                     $group_override_display = '';
                     if ($group_price_override !== null && !empty($products_in_group)) {
                         $dummy_prod = wc_get_product($products_in_group[0]);
@@ -58,7 +83,16 @@ global $product;
                          data-total-qty="<?php echo esc_attr(absint($group['total_qty'] ?? 0)); ?>"
                          data-group-price-override="<?php echo esc_attr($group_override_display); ?>">
                         
-                        <h3 class="wcb-group-title"><?php echo esc_html( $group['title'] ); ?></h3>
+                        <h3 class="wcb-group-title">
+                            <?php echo esc_html( $group['title'] ); ?>
+                            <?php 
+                            if ( $group_override_display ) : ?>
+                                <span class="wcb-group-header-price">
+                                    <?php echo wc_price($group_override_display); ?>
+                                </span>
+                            <?php endif; ?>
+                        </h3>
+                        
                         <div class="wcb-group-description">
                             <?php
                                 $rules = [];
@@ -68,8 +102,16 @@ global $product;
                                     case 'multiple_quantity':
                                         $min = absint($group['min_qty'] ?? 0);
                                         $max = absint($group['max_qty'] ?? 0);
-                                        if ($min > 0 && $max > 0) $rules[] = sprintf(__('Scegli da %d a %d prodotti', 'wcb-framework'), $min, $max);
-                                        elseif ($min > 0) $rules[] = sprintf(__('Scegli almeno %d prodotti', 'wcb-framework'), $min);
+                                        
+                                        if ($min > 0 && $max > 0) {
+                                            if ($min === $max) {
+                                                $rules[] = sprintf(__('Scegli %d prodotti', 'wcb-framework'), $min);
+                                            } else {
+                                                $rules[] = sprintf(__('Scegli da %d a %d prodotti', 'wcb-framework'), $min, $max);
+                                            }
+                                        } elseif ($min > 0) {
+                                            $rules[] = sprintf(__('Scegli almeno %d prodotti', 'wcb-framework'), $min);
+                                        }
                                         break;
                                     case 'quantity':
                                         $total = absint($group['total_qty'] ?? 0);
@@ -102,10 +144,17 @@ global $product;
                                     }
 
                                     $price_html = $child_product->get_price_html();
+                                    
+                                    // LOGICA VISUALIZZAZIONE PREZZO APPLICATA
                                     if ($final_item_price_override !== null) {
+                                        // Override specifico sull'ITEM vince sempre
                                         $price_html = wc_price($final_item_price_override);
                                     } elseif ($group_price_override !== null) {
-                                        $price_html = '<span style="font-size:0.8em; opacity:0.7;">' . __('Incluso nel bundle', 'wcb-framework') . '</span>';
+                                        // Override di GRUPPO attivo
+                                        if ($should_hide_prices) {
+                                            // Stampa span per compatibilità CSS Modern Theme
+                                            $price_html = '<span>' . __('Incluso nel bundle', 'wcb-framework') . '</span>';
+                                        }
                                     }
                                     
                                     $has_required_fields = false;
@@ -120,7 +169,6 @@ global $product;
                                         data-item-min="<?php echo esc_attr($item_min); ?>"
                                         data-item-step="<?php echo esc_attr($item_step); ?>"
                                         <?php 
-                                        // ARCHITECT FIX: Stampo data-price-override SOLO se è specifico dell'ITEM
                                         if($final_item_price_override !== null) {
                                             echo 'data-price-override="'.esc_attr($final_item_price_override).'"'; 
                                         } 
@@ -159,8 +207,7 @@ global $product;
                                             <div class="wcb-product-info">
                                                 <?php 
                                                 $default_qty = absint($p_settings['default_qty'] ?? 1);
-                                                $qty_label = ($default_qty > 1) ? '<span class="wcb-qty-badge">'.$default_qty.'x</span> ' : '';
-                                                ?>
+                                                $qty_label = '<span class="wcb-qty-badge">'.$default_qty.'x</span> ';                                                ?>
                                                 <span class="wcb-product-name"><?php echo $qty_label . esc_html( $child_product->get_name() ); ?></span>
                                                 <span class="wcb-product-price"><?php echo $price_html; ?></span>
                                                 <?php if ( in_array( $selection_mode, ['quantity', 'multiple_quantity'] ) ) : ?>
@@ -219,13 +266,36 @@ global $product;
         <div class="wcb-sidebar-col">
             <div class="wcb-sticky-summary">
                 <h3 class="wcb-summary-title"><?php esc_html_e('Riepilogo Bundle', 'wcb-framework'); ?></h3>
-                <div class="wcb-bundle-price"><span class="wcb-price-label"><?php esc_html_e('Totale:', 'wcb-framework'); ?></span><span class="wcb-price-value"></span></div>
-                <div class="wcb-summary-actions"><button type="submit" class="single_add_to_cart_button button alt" disabled><?php echo esc_html( $product->single_add_to_cart_text() ); ?></button></div>
+                <div class="wcb-bundle-price">
+                    <span class="wcb-price-label"><?php esc_html_e('Totale:', 'wcb-framework'); ?></span>
+                    <span class="wcb-price-value"></span>
+                </div>
+                
+                <?php /* NUOVO: Etichetta Sotto Prezzo Desktop */ ?>
+                <?php if ( ! empty( $price_sublabel ) ) : ?>
+                    <div class="wcb-price-sublabel"><?php echo wp_kses_post( $price_sublabel ); ?></div>
+                <?php endif; ?>
+
+                <div class="wcb-summary-actions">
+                    <button type="submit" class="single_add_to_cart_button button alt" disabled>
+                        <?php echo esc_html( $product->single_add_to_cart_text() ); ?>
+                    </button>
+                </div>
             </div>
         </div>
     </div> 
     <div class="wcb-mobile-sticky-bar">
-        <div class="wcb-mobile-price"><span class="wcb-price-label"><?php esc_html_e('Totale:', 'wcb-framework'); ?></span><span class="wcb-price-value"></span></div>
-        <button type="button" class="button alt wcb-mobile-submit-btn" disabled><?php echo esc_html( $product->single_add_to_cart_text() ); ?></button>
+        <div class="wcb-mobile-price-col"> <div class="wcb-mobile-price">
+                <span class="wcb-price-label"><?php esc_html_e('Totale:', 'wcb-framework'); ?></span>
+                <span class="wcb-price-value"></span>
+            </div>
+            <?php /* NUOVO: Etichetta Sotto Prezzo Mobile */ ?>
+            <?php if ( ! empty( $price_sublabel ) ) : ?>
+                <div class="wcb-price-sublabel mobile"><?php echo wp_kses_post( $price_sublabel ); ?></div>
+            <?php endif; ?>
+        </div>
+        <button type="button" class="button alt wcb-mobile-submit-btn" disabled>
+            <?php echo esc_html( $product->single_add_to_cart_text() ); ?>
+        </button>
     </div>
 </form>
