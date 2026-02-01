@@ -1,12 +1,12 @@
 /*
- * asset/admin-modern.js - Versione 2.4.7
+ * asset/admin-modern.js - Versione 2.4.10
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
 */
 
 jQuery(document).ready(function($) {
-    console.log('WooC Bundle Modern Theme v2.4.1 loaded');
+    console.log('WooC Bundle Modern Theme v2.4.10 loaded');
     
     // Funzione Core per inizializzare un gruppo
     function initModernGroup($container) {

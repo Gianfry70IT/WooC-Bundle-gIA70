@@ -1,5 +1,5 @@
 /*
- * asset/admin.js - Versione 2.4.9
+ * asset/admin.js - Versione 2.4.10
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html

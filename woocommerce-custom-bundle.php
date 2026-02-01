@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WooC Bundle gIA70
  * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           2.4.8
+ * Version:           2.4.10
  * Author:            gIA70 - Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -540,8 +540,8 @@ final class WC_Custom_Bundle_Framework {
     public function enqueue_admin_scripts($hook) {
         global $post;
         if ('post-new.php' == $hook || ('post.php' == $hook && isset($post->post_type) && 'product' == $post->post_type)) {
-            wp_enqueue_style('wcb-admin-style', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '2.4.7');
-            wp_enqueue_script('wcb-admin-script', plugin_dir_url(__FILE__) . 'assets/admin.js', ['jquery', 'wc-enhanced-select', 'jquery-ui-sortable'], '2.4.7', true);
+            wp_enqueue_style('wcb-admin-style', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '2.4.10');
+            wp_enqueue_script('wcb-admin-script', plugin_dir_url(__FILE__) . 'assets/admin.js', ['jquery', 'wc-enhanced-select', 'jquery-ui-sortable'], '2.4.10', true);
             
             $bundle_groups_data = get_post_meta($post->ID, '_bundle_groups', true);
             if (!is_array($bundle_groups_data)) $bundle_groups_data = [];
@@ -563,16 +563,16 @@ final class WC_Custom_Bundle_Framework {
             }
             wp_localize_script('wcb-admin-script', 'wcb_bundle_data', ['groups' => $groups_for_js]);
             if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.css', ['wcb-admin-style'], '2.4.0');
-                wp_enqueue_script('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.js', ['wcb-admin-script'], '2.4.0', true);
+                wp_enqueue_style('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.css', ['wcb-admin-style'], '2.4.10');
+                wp_enqueue_script('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.js', ['wcb-admin-script'], '2.4.10', true);
             }
         }
     }
 
     public function enqueue_frontend_scripts() {
         if (is_product() && get_the_id() && wc_get_product(get_the_id())->get_type() === 'custom_bundle') {
-            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.4.7');
-            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.4.7', true);
+            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.4.10');
+            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.4.10', true);
     
             $product_id = get_the_id();
             $pricing_data = [
@@ -637,20 +637,20 @@ final class WC_Custom_Bundle_Framework {
             ]);
             
             if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.0');
-                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.0', true);
+                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.10);
+                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.10, true);
             }
         }
         
         if (is_cart()) {
-            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.4.7');
-            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.4.7', true);
+            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.4.10);
+            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.4.10, true);
             wp_localize_script('wcb-frontend-script', 'wcb_params', [
                 'i18n' => ['confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework')]
             ]);
             if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.0');
-                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.0', true);
+                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.10);
+                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.10, true);
             }
         }
     }
