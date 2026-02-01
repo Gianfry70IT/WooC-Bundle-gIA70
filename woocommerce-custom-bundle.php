@@ -20,6 +20,7 @@ if (!defined('WCB_MODERN_THEME_DEFAULT')) {
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 // Gestione Impostazioni Tema
+// Gestione Impostazioni & Documentazione
 class WCB_Theme_Settings {
     private static $instance;
     
@@ -36,7 +37,6 @@ class WCB_Theme_Settings {
     
     public function register_settings() {
         register_setting('wcb_theme_settings', 'wcb_enable_modern_theme', ['type' => 'boolean', 'default' => WCB_MODERN_THEME_DEFAULT, 'sanitize_callback' => 'rest_sanitize_boolean']);
-        // NUOVO: Setting Globale per Override Prezzi
         register_setting('wcb_theme_settings', 'wcb_default_hide_override_price', ['type' => 'boolean', 'default' => true, 'sanitize_callback' => 'rest_sanitize_boolean']);
     }
     
@@ -45,37 +45,98 @@ class WCB_Theme_Settings {
     }
     
     public function render_settings_page() {
+        $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'settings';
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('WooC Bundle Global Settings', 'wcb-framework'); ?></h1>
-            <form method="post" action="options.php">
-                <?php settings_fields('wcb_theme_settings'); ?>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row"><strong>Tema Grafico</strong></th>
-                        <td></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><label for="wcb_enable_modern_theme"><?php esc_html_e('Tema Moderno', 'wcb-framework'); ?></label></th>
-                        <td>
-                            <label><input type="checkbox" id="wcb_enable_modern_theme" name="wcb_enable_modern_theme" value="1" <?php checked(get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)); ?>> <?php esc_html_e('Abilita il tema moderno per i bundle', 'wcb-framework'); ?></label>
-                            <p class="description"><?php esc_html_e('Attiva interfaccia moderna con animazioni e design aggiornato.', 'wcb-framework'); ?></p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><hr><strong>Comportamento Prezzi</strong></th>
-                        <td><hr></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><label for="wcb_default_hide_override_price"><?php esc_html_e('Nascondi prezzi item in Override', 'wcb-framework'); ?></label></th>
-                        <td>
-                            <label><input type="checkbox" id="wcb_default_hide_override_price" name="wcb_default_hide_override_price" value="1" <?php checked(get_option('wcb_default_hide_override_price', true)); ?>> <?php esc_html_e('Nascondi prezzi singoli prodotti se il gruppo ha un prezzo imposto (Default)', 'wcb-framework'); ?></label>
-                            <p class="description"><?php esc_html_e('Questa impostazione è il default. Può essere sovrascritta nel singolo gruppo bundle.', 'wcb-framework'); ?></p>
-                        </td>
-                    </tr>
-                </table>
-                <?php submit_button(); ?>
-            </form>
+            <h1><?php esc_html_e('WooC Bundle gIA70 - Pannello di Controllo', 'wcb-framework'); ?></h1>
+            
+            <h2 class="nav-tab-wrapper">
+                <a href="?page=wcb-theme-settings&tab=settings" class="nav-tab <?php echo $active_tab == 'settings' ? 'nav-tab-active' : ''; ?>">Impostazioni Generali</a>
+                <a href="?page=wcb-theme-settings&tab=guide" class="nav-tab <?php echo $active_tab == 'guide' ? 'nav-tab-active' : ''; ?>">Manuale Operativo</a>
+            </h2>
+
+            <?php if ($active_tab == 'settings'): ?>
+                <form method="post" action="options.php">
+                    <?php settings_fields('wcb_theme_settings'); ?>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><strong>Tema Grafico</strong></th>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label for="wcb_enable_modern_theme"><?php esc_html_e('Tema Moderno', 'wcb-framework'); ?></label></th>
+                            <td>
+                                <label><input type="checkbox" id="wcb_enable_modern_theme" name="wcb_enable_modern_theme" value="1" <?php checked(get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)); ?>> <?php esc_html_e('Abilita il tema moderno (Card, Ombreggiature, Animazioni)', 'wcb-framework'); ?></label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><hr><strong>Comportamento Prezzi</strong></th>
+                            <td><hr></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label for="wcb_default_hide_override_price"><?php esc_html_e('Override Prezzi', 'wcb-framework'); ?></label></th>
+                            <td>
+                                <label><input type="checkbox" id="wcb_default_hide_override_price" name="wcb_default_hide_override_price" value="1" <?php checked(get_option('wcb_default_hide_override_price', true)); ?>> <?php esc_html_e('Di default, nascondi i prezzi dei singoli prodotti se il gruppo ha un prezzo imposto.', 'wcb-framework'); ?></label>
+                                <p class="description"><?php esc_html_e('Questa impostazione funge da default globale. Può essere sovrascritta nel singolo gruppo bundle.', 'wcb-framework'); ?></p>
+                            </td>
+                        </tr>
+                    </table>
+                    <?php submit_button(); ?>
+                </form>
+            <?php else: ?>
+                <?php $this->render_guide_tab(); ?>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    private function render_guide_tab() {
+        ?>
+        <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; box-shadow: 0 1px 4px rgba(0,0,0,0.05); margin-top: 20px; max-width: 1000px;">
+            <h3>Guida Rapida alla Configurazione (v2.4.10)</h3>
+            <p>Il plugin <strong>WooC Bundle gIA70</strong> permette di creare prodotti complessi composti da gruppi di articoli, con regole di selezione e prezzi avanzati.</p>
+            
+            <hr>
+
+            <h4>1. Creazione del Bundle</h4>
+            <ol>
+                <li>Crea un nuovo prodotto WooCommerce.</li>
+                <li>Nel box <strong>Dati Prodotto</strong>, seleziona il tipo: <code>WooC Bundle gIA70</code>.</li>
+                <li>Vai alla tab verticale <strong>WooC Bundle gIA70</strong> per configurare i gruppi.</li>
+            </ol>
+
+            <hr>
+
+            <h4>2. Configurazione dei Gruppi</h4>
+            <p>Ogni bundle è composto da "Gruppi" (es. Divisa Uomo, Accessori, Gadget). Per ogni gruppo puoi definire:</p>
+            <table class="widefat fixed striped" style="margin-bottom: 20px;">
+                <thead><tr><th>Modalità</th><th>Descrizione</th><th>Esempio d'uso</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>Singola</strong></td><td>L'utente deve scegliere 1 solo prodotto (Radio Button).</td><td>Scelta taglia o colore unico.</td></tr>
+                    <tr><td><strong>Multipla</strong></td><td>L'utente può scegliere più prodotti (Checkbox). Usa Min/Max Qty per limitare.</td><td>Scegli 2 accessori tra 5 disponibili.</td></tr>
+                    <tr><td><strong>Quantità</strong></td><td>L'utente deve raggiungere una somma totale di pezzi esatta.</td><td>Componi un cartone da 6 bottiglie miste.</td></tr>
+                    <tr><td><strong>Qty Multipla</strong></td><td>Come Multipla, ma l'utente può inserire la quantità per ogni riga.</td><td>Ordina X penne e Y matite (minimo 10 pezzi totali).</td></tr>
+                </tbody>
+            </table>
+
+            <h4>3. Gestione Prezzi Avanzata</h4>
+            <p>Hai tre livelli di controllo sui prezzi:</p>
+            <ul>
+                <li><strong>Prezzo Calcolato (Standard):</strong> Somma dei prezzi dei prodotti scelti. Puoi applicare uno sconto globale (%) o fisso (€) nel tab "Generale".</li>
+                <li><strong>Prezzo Override ITEM (Specifico):</strong> Nel backend, accanto a ogni prodotto, puoi scrivere un prezzo. Quel prodotto costerà quella cifra <em>solo</em> in questo bundle.</li>
+                <li><strong>Prezzo Override GRUPPO (Totale):</strong> Puoi imporre che un intero gruppo costi una cifra fissa (es. 100€), indipendentemente dai prodotti scelti.
+                    <br><em>Novità v2.4:</em> Quando imposti un prezzo di gruppo, apparirà un menu per decidere se mostrare o nascondere i prezzi dei singoli articoli (Default/Mostra/Nascondi).
+                </li>
+            </ul>
+
+            <hr>
+
+            <h4>4. Funzioni Speciali</h4>
+            <ul>
+                <li><strong>Q.tà Fissa (Default Qty):</strong> Nel backend, puoi dire che selezionando la "Polo", ne vengono aggiunte automaticamente 2 al carrello. Apparirà un badge <code>2x</code> nel frontend.</li>
+                <li><strong>Etichetta Sotto Prezzo:</strong> Nel tab "Generale", puoi scrivere un testo personalizzato (es. "Sconto 20% al checkout") che apparirà sotto il prezzo totale.</li>
+                <li><strong>Personalizzazione:</strong> Puoi aggiungere campi testo (es. "Nome sulla maglia") per ogni gruppo.</li>
+            </ul>
         </div>
         <?php
     }
