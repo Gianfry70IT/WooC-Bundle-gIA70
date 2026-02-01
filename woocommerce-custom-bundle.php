@@ -19,7 +19,6 @@ if (!defined('WCB_MODERN_THEME_DEFAULT')) {
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// Gestione Impostazioni Tema
 // Gestione Impostazioni & Documentazione
 class WCB_Theme_Settings {
     private static $instance;
@@ -698,20 +697,20 @@ final class WC_Custom_Bundle_Framework {
             ]);
             
             if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.10);
-                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.10, true);
+                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.10');
+                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.10', true);
             }
         }
         
         if (is_cart()) {
-            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.4.10);
-            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.4.10, true);
+            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.4.10');
+            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.4.10', true);
             wp_localize_script('wcb-frontend-script', 'wcb_params', [
                 'i18n' => ['confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework')]
             ]);
             if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.10);
-                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.10, true);
+                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.4.10');
+                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.4.10', true);
             }
         }
     }
