@@ -5,13 +5,16 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Get version from tag
         id: get_version
@@ -43,22 +46,23 @@ jobs:
           cd ..
       
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release v${{ steps.get_version.outputs.VERSION }}
+          name: Release v${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
-      
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./wooc-bundle-gia70-v${{ steps.get_version.outputs.VERSION }}.zip
-          asset_name: wooc-bundle-gia70-v${{ steps.get_version.outputs.VERSION }}.zip
-          asset_content_type: application/zip
+          files: wooc-bundle-gia70-v${{ steps.get_version.outputs.VERSION }}.zip
+          body: |
+            ## WooC Bundle gIA70 v${{ steps.get_version.outputs.VERSION }}
+            
+            Download del plugin per WordPress/WooCommerce.
+            
+            ### 📦 Installazione
+            1. Scarica il file ZIP qui sotto
+            2. In WordPress: Plugin → Aggiungi nuovo → Carica plugin
+            3. Seleziona il file ZIP e installa
+            
+            ### 📝 Changelog
+            Vedi [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) per i dettagli.
