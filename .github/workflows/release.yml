@@ -1,0 +1,64 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Create plugin package
+        run: |
+          PLUGIN_SLUG="wooc-bundle-gia70"
+          BUILD_DIR="build"
+          
+          # Crea directory di build
+          mkdir -p $BUILD_DIR/$PLUGIN_SLUG
+          
+          # Copia i file del plugin (con nome cartella corretto)
+          rsync -av \
+            --exclude='.git' \
+            --exclude='.gitignore' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='build' \
+            --exclude='releases' \
+            --exclude='*.sh' \
+            --exclude='.DS_Store' \
+            ./ $BUILD_DIR/$PLUGIN_SLUG/
+          
+          # Crea ZIP
+          cd $BUILD_DIR
+          zip -r ../${PLUGIN_SLUG}-v${{ steps.get_version.outputs.VERSION }}.zip $PLUGIN_SLUG/
+          cd ..
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release v${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+      
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./wooc-bundle-gia70-v${{ steps.get_version.outputs.VERSION }}.zip
+          asset_name: wooc-bundle-gia70-v${{ steps.get_version.outputs.VERSION }}.zip
+          asset_content_type: application/zip
