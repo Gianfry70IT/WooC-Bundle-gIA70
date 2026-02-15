@@ -5,6 +5,30 @@ Tutte le modifiche notevoli a questo progetto verranno documentate in questo fil
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/).
 
+---
+
+## 🗺️ Roadmap - Prossime Release
+
+### [2.6] - Pianificata
+**Focus: Miglioramenti UX Admin**
+
+#### In Sviluppo
+- 🎯 **Drag & Drop per riordinare prodotti** - Riorganizza l'ordine dei prodotti all'interno di ogni gruppo tramite drag & drop nell'interfaccia admin
+  - Interfaccia intuitiva con feedback visivo
+  - Salvataggio automatico dell'ordine
+  - Compatibilità con tutti i temi
+
+### [2.7] - Pianificata  
+**Focus: Compatibilità Moderna**
+
+#### In Valutazione
+- 🧩 **Compatibilità con Block Themes** - Supporto completo per i temi a blocchi WordPress
+  - Block pattern personalizzati per bundle
+  - Integrazione con Full Site Editing (FSE)
+  - Template parts per bundle
+  
+---
+
 ## [2.5] - 2026-02-15
 
 ### Aggiunto
