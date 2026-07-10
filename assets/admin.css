@@ -278,6 +278,32 @@
   border-bottom: none;
 }
 
+/* Maniglia ordinamento riga prodotto */
+.wcb-row-sort-handle {
+  flex: 0 0 auto;
+  cursor: move;
+  color: var(--wcb-secondary);
+  font-size: 16px;
+  user-select: none;
+}
+
+.wcb-row-sort-handle:hover {
+  color: var(--wcb-primary);
+}
+
+.wcb-row-sort-placeholder {
+  border: 2px dashed var(--wcb-primary);
+  border-radius: 4px;
+  background: rgba(34, 113, 177, 0.06);
+  margin: 4px 0;
+}
+
+.wcb-product-setting-row.ui-sortable-helper {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
 /* Thumbnail */
 .wcb-row-thumb {
   flex: 0 0 45px;

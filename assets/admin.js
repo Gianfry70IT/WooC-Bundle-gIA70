@@ -1,5 +1,5 @@
 /*
- * asset/admin.js - Versione 2.5
+ * asset/admin.js - Versione 2.6
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -124,6 +124,7 @@ jQuery(document).ready(function ($) {
 
                 const rowHtml = `
                     <div class="wcb-product-setting-row" data-product-id="${pid}">
+                        <div class="wcb-row-sort-handle" title="Trascina per ordinare">☰</div>
                         <div class="wcb-row-thumb"><img src="${imageUrl}" width="40"></div>
                         <div class="wcb-row-name"><strong>${product.text}</strong><br><small>ID: ${pid}</small></div>
                         <div class="wcb-row-inputs">
@@ -142,6 +143,34 @@ jQuery(document).ready(function ($) {
 
         if (currentIds.length === 0) $settingsContainer.html('<p style="padding:10px; color:#666;">Cerca e seleziona i prodotti qui sopra.</p>');
         toggleProductSettingsVisibility($group);
+        initProductRowSorting($group);
+    }
+
+    // --- ORDINAMENTO PRODOTTI NEL GRUPPO ---
+    // L'ordine di salvataggio (e di visualizzazione nel frontend) segue l'ordine
+    // delle <option> nella select nascosta: dopo il drag riallineiamo le option
+    // all'ordine delle righe.
+    function syncProductOrderFromRows($group) {
+        const $select = $group.find('select.wc-product-search');
+        $group.find('.wcb-product-setting-row').each(function () {
+            const $opt = $select.find(`option[value="${$(this).attr('data-product-id')}"]`);
+            if ($opt.length) $select.append($opt);
+        });
+        // Aggiorna solo la UI di select2 senza scatenare il listener 'change' dell'app
+        $select.trigger('change.select2');
+    }
+
+    function initProductRowSorting($group) {
+        const $list = $group.find('.wcb-product-settings-list');
+        if ($list.data('ui-sortable')) { $list.sortable('refresh'); return; }
+        $list.sortable({
+            items: '.wcb-product-setting-row',
+            handle: '.wcb-row-sort-handle',
+            axis: 'y',
+            placeholder: 'wcb-row-sort-placeholder',
+            forcePlaceholderSize: true,
+            update: function () { syncProductOrderFromRows($group); }
+        });
     }
 
     function initEnhancedSelect($target) {

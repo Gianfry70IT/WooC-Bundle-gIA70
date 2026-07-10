@@ -9,15 +9,6 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/)
 
 ## 🗺️ Roadmap - Prossime Release
 
-### [2.6] - Pianificata
-**Focus: Miglioramenti UX Admin**
-
-#### In Sviluppo
-- 🎯 **Drag & Drop per riordinare prodotti** - Riorganizza l'ordine dei prodotti all'interno di ogni gruppo tramite drag & drop nell'interfaccia admin
-  - Interfaccia intuitiva con feedback visivo
-  - Salvataggio automatico dell'ordine
-  - Compatibilità con tutti i temi
-
 ### [2.7] - Pianificata  
 **Focus: Compatibilità Moderna**
 
@@ -28,6 +19,11 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/)
   - Template parts per bundle
   
 ---
+
+## [2.6] - 2026-07-10
+
+### Aggiunto
+- ✨ Ordinamento drag & drop dei prodotti all'interno di un gruppo (maniglia ☰ su ogni riga prodotto in admin); l'ordine viene salvato e rispettato nel frontend
 
 ## [2.5] - 2026-02-15
 
