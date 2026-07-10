@@ -146,7 +146,8 @@ $default_hide_override = get_option('wcb_default_hide_override_price', true);
                                     $variation_data = [];
                                     if ($child_product->is_type('variable')) {
                                         foreach ($child_product->get_available_variations() as $variation) {
-                                            if (!empty($variation['attributes'])) $variation_data[] = $variation['attributes'];
+                                            // '_price' viaggia insieme agli attributi: il JS lo usa per il totale live
+                                            if (!empty($variation['attributes'])) $variation_data[] = array_merge($variation['attributes'], ['_price' => $variation['display_price']]);
                                         }
                                     }
                                     

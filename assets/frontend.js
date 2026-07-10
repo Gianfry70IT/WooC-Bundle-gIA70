@@ -1,5 +1,5 @@
 /*
- * asset/frontend.js - Versione 2.5
+ * asset/frontend.js - Versione 2.6.1
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -262,6 +262,31 @@ jQuery(document).ready(function ($) {
         $('.wcb-price-value').html(formattedPrice);
     }
 
+    // Risolve il prezzo della variazione selezionata nei select di $container,
+    // usando il campo '_price' incluso in data-variation-data dal template.
+    // Ritorna null se la selezione è incompleta o non matcha nessuna variazione.
+    function getSelectedVariationPrice($item, $container) {
+        const variationData = $item.data('variation-data');
+        if (!variationData || $container.length === 0) return null;
+        let selection = {};
+        let complete = true;
+        $container.find('select.wcb-variation-select').each(function () {
+            const val = $(this).val();
+            if (!val) { complete = false; return false; }
+            selection[$(this).data('attribute-name')] = val;
+        });
+        if (!complete || Object.keys(selection).length === 0) return null;
+        for (const variation of variationData) {
+            let isMatch = true;
+            for (const attr in selection) {
+                // Attributo vuoto nella variazione = "qualsiasi valore"
+                if (variation[attr] && variation[attr] !== selection[attr]) { isMatch = false; break; }
+            }
+            if (isMatch && variation._price !== undefined) return parseDataPrice(variation._price);
+        }
+        return null;
+    }
+
     // --- FUNZIONE CRITICA AGGIORNATA ---
     function updateBundlePrice() {
         if (typeof wcb_params.pricing === 'undefined') return;
@@ -291,14 +316,22 @@ jQuery(document).ready(function ($) {
                     groupSelectedQty += quantity; // Incrementa il contatore "prodotti scelti"
 
                     const itemOverride = $item.data('price-override');
-                    let price = 0;
                     if (itemOverride !== undefined && itemOverride !== null && itemOverride !== '') {
-                        price = parseFloat(itemOverride);
+                        groupItemTotal += parseFloat(itemOverride) * quantity;
                     } else {
-                        price = parsePriceFromElement($item.find('.wcb-product-price'));
+                        const basePrice = parsePriceFromElement($item.find('.wcb-product-price'));
+                        const $variationSets = $item.find('.wcb-variation-sets-container .wcb-variation-set');
+                        if ($variationSets.length > 0) {
+                            // Modalità a quantità: ogni "Pezzo" può avere una variazione (e prezzo) diversa
+                            $variationSets.each(function () {
+                                const variationPrice = getSelectedVariationPrice($item, $(this));
+                                groupItemTotal += (variationPrice !== null ? variationPrice : basePrice);
+                            });
+                        } else {
+                            const variationPrice = getSelectedVariationPrice($item, $item.find('.wcb-variation-container'));
+                            groupItemTotal += (variationPrice !== null ? variationPrice : basePrice) * quantity;
+                        }
                     }
-
-                    groupItemTotal += price * quantity;
                 }
             });
 

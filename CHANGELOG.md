@@ -20,6 +20,11 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/)
   
 ---
 
+## [2.6.1] - 2026-07-10
+
+### Corretto
+- 🐛 Il totale in anteprima ("Riepilogo Bundle") non si aggiornava cambiando l'opzione di un prodotto variabile con prezzi diversi: restava sempre il prezzo della prima opzione. Ora il prezzo di ogni variazione è incluso nei dati del template e il totale si aggiorna alla selezione (anche per i singoli "Pezzi" nelle modalità a quantità)
+
 ## [2.6] - 2026-07-10
 
 ### Aggiunto
