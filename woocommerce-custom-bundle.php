@@ -881,14 +881,25 @@ final class WC_Custom_Bundle_Framework
             return true;
         };
 
+        // SICUREZZA: i product ID arrivano dal client; ogni selezione deve
+        // appartenere alla lista prodotti configurata per il gruppo.
+        $invalid_selection_error = function ($group_config) use (&$errors) {
+            $errors[] = sprintf(__('Selezione non valida per il gruppo "%s".', 'wcb-framework'), $group_config['title'] ?? '');
+        };
+
         foreach ($bundle_groups as $group_index => $group_config) {
             $is_required = ($group_config['is_required'] ?? 'no') === 'yes';
             $selection_mode = $group_config['selection_mode'];
             $selection_instances = [];
+            $allowed_products = array_map('intval', $group_config['products'] ?? []);
 
             if ('single' === $selection_mode) {
                 if (isset($posted_radio_selections[$group_index])) {
                     $pid = absint($posted_radio_selections[$group_index]);
+                    if (!in_array($pid, $allowed_products, true)) {
+                        $invalid_selection_error($group_config);
+                        $pid = 0;
+                    }
                     $child_product = wc_get_product($pid);
                     if ($child_product) {
                         $item_id = $pid;
@@ -908,6 +919,10 @@ final class WC_Custom_Bundle_Framework
                 foreach ($group_selections as $pid => $data) {
                     if (isset($data['selected'])) {
                         $pid = absint($pid);
+                        if (!in_array($pid, $allowed_products, true)) {
+                            $invalid_selection_error($group_config);
+                            continue;
+                        }
                         $child_product = wc_get_product($pid);
                         if ($child_product) {
                             $item_id = $pid;
@@ -929,6 +944,10 @@ final class WC_Custom_Bundle_Framework
                     $pid = absint($pid);
                     $qty = absint($qty);
                     if ($qty > 0) {
+                        if (!in_array($pid, $allowed_products, true)) {
+                            $invalid_selection_error($group_config);
+                            continue;
+                        }
                         $child_product = wc_get_product($pid);
                         if ($child_product) {
                             if (!$validate_product_qty($qty, $pid, $group_config, $child_product->get_name()))
@@ -1486,7 +1505,7 @@ final class WC_Custom_Bundle_Framework
             return;
         }
         $bundle_groups_filtered = [];
-        foreach ($bundle_groups_raw as $group) {
+        foreach ($bundle_groups_raw as $group_index => $group) {
             $available_products = [];
             if (!empty($group['products'])) {
                 foreach ($group['products'] as $p_id) {
@@ -1501,8 +1520,11 @@ final class WC_Custom_Bundle_Framework
                 }
             }
             $group['products'] = $available_products;
+            // Indice originale preservato: il submit usa questi indici per
+            // ritrovare la config del gruppo nel meta, non devono slittare
+            // se un gruppo viene escluso perché senza prodotti validi.
             if (!empty($group['products']))
-                $bundle_groups_filtered[] = $group;
+                $bundle_groups_filtered[$group_index] = $group;
         }
         // Setup global product for template compatibility (fixes REST API get_id() on null error)
         global $product;
