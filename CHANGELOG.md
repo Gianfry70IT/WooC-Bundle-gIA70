@@ -20,7 +20,7 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/)
   
 ---
 
-## [Non rilasciato]
+## [2.6.2] - 2026-07-14
 
 ### Aggiunto
 - ✨ **Spedizione Bundle** (modalità carrello): nuovo checkbox nel tab Generale per calcolare la spedizione con peso, dimensioni e classe del prodotto bundle invece che con quelli dei singoli articoli. La tab "Spedizione" di WooCommerce è ora visibile per i prodotti bundle. Attivo solo se il bundle ha peso o classe di spedizione impostati
