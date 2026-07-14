@@ -317,6 +317,8 @@ jQuery(document).ready(function ($) {
         const productType = $('#product-type').val();
         if (productType !== 'custom_bundle') { $('.bundle_price_field_wrapper, .wcb-signature').hide(); return; }
         $('.pricing.show_if_simple').addClass('show_if_custom_bundle').show();
+        // Tab Spedizione visibile: serve per peso/dimensioni/classe usati da "Spedizione Bundle"
+        $('li.shipping_options').addClass('show_if_custom_bundle').show();
         const tipoPrezzo = $('#_bundle_pricing_type').val();
         $('.bundle_price_calculated_field').toggle(tipoPrezzo === 'calculated');
         $('.bundle_price_fixed_field').toggle(tipoPrezzo !== 'calculated');

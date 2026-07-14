@@ -535,6 +535,10 @@ final class WC_Custom_Bundle_Framework
         // HOOK CALCOLO PREZZI CRITICO
         add_action('woocommerce_before_calculate_totals', [$this, 'calculate_bundle_price_in_cart'], 99);
 
+        // SPEDIZIONE: override delle regole di spedizione in modalità carrello
+        add_filter('woocommerce_cart_shipping_packages', [$this, 'override_bundle_shipping_packages']);
+        add_filter('woocommerce_cart_contents_weight', [$this, 'override_bundle_cart_weight']);
+
         add_action('woocommerce_order_status_processing', [$this, 'reduce_stock_for_bundle_items']);
         add_action('woocommerce_cart_item_removed', [$this, 'handle_bundle_item_removed'], 10, 2);
         add_action('wp_ajax_wcb_get_variation_price', [$this, 'get_variation_price_handler']);
@@ -1432,6 +1436,7 @@ final class WC_Custom_Bundle_Framework
         update_post_meta($post_id, '_bundle_discount_percentage', wc_clean($_POST['_bundle_discount_percentage'] ?? ''));
         update_post_meta($post_id, '_bundle_price_sublabel', wp_kses_post($_POST['_bundle_price_sublabel'] ?? ''));
         update_post_meta($post_id, '_bundle_add_as_separate_items', isset($_POST['_bundle_add_as_separate_items']) ? 'yes' : 'no');
+        update_post_meta($post_id, '_bundle_shipping_override', isset($_POST['_bundle_shipping_override']) ? 'yes' : 'no');
     }
 
     // [RESTO DELLA CLASSE INVARIATO...]
@@ -1445,6 +1450,7 @@ final class WC_Custom_Bundle_Framework
         woocommerce_wp_text_input(['id' => '_bundle_discount_percentage', 'label' => __('Sconto Percentuale (%)', 'wcb-framework'), 'data_type' => 'decimal', 'desc_tip' => true, 'description' => __('Applica uno sconto percentuale sul totale calcolato dei prodotti.', 'wcb-framework')]);
         echo '</div>';
         woocommerce_wp_checkbox(['id' => '_bundle_add_as_separate_items', 'label' => __('Modalità Carrello', 'wcb-framework'), 'description' => __('Aggiungi i prodotti scelti come articoli separati nel carrello', 'wcb-framework'), 'desc_tip' => true]);
+        woocommerce_wp_checkbox(['id' => '_bundle_shipping_override', 'label' => __('Spedizione Bundle', 'wcb-framework'), 'description' => __('In modalità carrello, calcola la spedizione con peso, dimensioni e classe del bundle (tab "Spedizione") invece che con quelli dei singoli prodotti. Richiede peso o classe di spedizione impostati sul bundle.', 'wcb-framework'), 'desc_tip' => true]);
         echo '<div class="options_group">';
         woocommerce_wp_textarea_input([
             'id' => '_bundle_price_sublabel',
@@ -1679,6 +1685,96 @@ final class WC_Custom_Bundle_Framework
             }
         }
         return $classes;
+    }
+
+    // SPEDIZIONE BUNDLE (modalità carrello / articoli separati)
+    // Se il bundle ha l'override attivo, ai fini del calcolo spedizione i
+    // figli vengono sostituiti da una riga sintetica con i dati di
+    // spedizione (peso, dimensioni, classe) del prodotto bundle.
+    private function get_shipping_override_bundle($cart_item)
+    {
+        $bundle_id = $cart_item['wcb_bundle_part_of'] ?? ($cart_item['wcb_data']['bundle_part_of'] ?? null);
+        $parent_id = $cart_item['wcb_parent_bundle_id'] ?? ($cart_item['wcb_data']['parent_bundle_id'] ?? null);
+        if (!$bundle_id || !$parent_id)
+            return null;
+        if (get_post_meta($parent_id, '_bundle_shipping_override', true) !== 'yes')
+            return null;
+        $bundle_product = wc_get_product($parent_id);
+        if (!$bundle_product || !$bundle_product->needs_shipping())
+            return null;
+        // Senza peso né classe di spedizione sul bundle l'override produrrebbe
+        // spedizioni "a vuoto": in quel caso restano le regole dei singoli prodotti.
+        if ('' === $bundle_product->get_weight() && !$bundle_product->get_shipping_class_id())
+            return null;
+        return ['bundle_id' => $bundle_id, 'product' => $bundle_product];
+    }
+
+    public function override_bundle_shipping_packages($packages)
+    {
+        foreach ($packages as &$package) {
+            if (empty($package['contents']) || !is_array($package['contents']))
+                continue;
+
+            $synthetic = [];
+            foreach ($package['contents'] as $key => $item) {
+                $override = $this->get_shipping_override_bundle($item);
+                if (!$override)
+                    continue;
+                $bid = $override['bundle_id'];
+                if (!isset($synthetic[$bid])) {
+                    $synthetic[$bid] = [
+                        'key' => 'wcb_shipping_' . $bid,
+                        'product_id' => $override['product']->get_id(),
+                        'variation_id' => 0,
+                        'variation' => [],
+                        'quantity' => 1,
+                        'data' => $override['product'],
+                        'line_total' => 0,
+                        'line_tax' => 0,
+                        'line_subtotal' => 0,
+                        'line_subtotal_tax' => 0,
+                    ];
+                }
+                // I totali dei figli confluiscono nella riga sintetica, così le
+                // regole basate sul prezzo (es. spedizione gratuita sopra soglia)
+                // continuano a vedere il valore reale del bundle.
+                $synthetic[$bid]['line_total'] += floatval($item['line_total'] ?? 0);
+                $synthetic[$bid]['line_tax'] += floatval($item['line_tax'] ?? 0);
+                $synthetic[$bid]['line_subtotal'] += floatval($item['line_subtotal'] ?? 0);
+                $synthetic[$bid]['line_subtotal_tax'] += floatval($item['line_subtotal_tax'] ?? 0);
+                unset($package['contents'][$key]);
+            }
+
+            if (!empty($synthetic)) {
+                foreach ($synthetic as $line) {
+                    $package['contents'][$line['key']] = $line;
+                }
+                $package['contents_cost'] = 0;
+                foreach ($package['contents'] as $item) {
+                    $package['contents_cost'] += floatval($item['line_total'] ?? 0);
+                }
+            }
+        }
+        return $packages;
+    }
+
+    public function override_bundle_cart_weight($weight)
+    {
+        if (!WC()->cart)
+            return $weight;
+        $seen_bundles = [];
+        foreach (WC()->cart->get_cart() as $cart_item) {
+            $override = $this->get_shipping_override_bundle($cart_item);
+            if (!$override)
+                continue;
+            // Togli il peso dei figli e conta quello del bundle una volta sola
+            $weight -= floatval($cart_item['data']->get_weight()) * $cart_item['quantity'];
+            if (!isset($seen_bundles[$override['bundle_id']])) {
+                $weight += floatval($override['product']->get_weight());
+                $seen_bundles[$override['bundle_id']] = true;
+            }
+        }
+        return max(0, $weight);
     }
 
     // LOGICA PREZZI AVANZATA (ARCHITECT FIX)
