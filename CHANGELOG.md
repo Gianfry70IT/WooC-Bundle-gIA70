@@ -20,6 +20,11 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/)
   
 ---
 
+## [Non rilasciato]
+
+### Aggiunto
+- ✨ **Coupon su tutto il Bundle** (modalità carrello): nuovo checkbox nel tab Generale per applicare i coupon a tutti i prodotti del bundle, anche a quelli fuori dalle categorie/prodotti a cui il coupon è ristretto. Nota: non bypassa l'opzione "Escludi articoli in saldo" del coupon
+
 ## [2.6.2] - 2026-07-14
 
 ### Aggiunto

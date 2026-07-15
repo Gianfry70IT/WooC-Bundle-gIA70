@@ -539,6 +539,10 @@ final class WC_Custom_Bundle_Framework
         add_filter('woocommerce_cart_shipping_packages', [$this, 'override_bundle_shipping_packages']);
         add_filter('woocommerce_cart_contents_weight', [$this, 'override_bundle_cart_weight']);
 
+        // COUPON: applica i coupon a tutti i prodotti del bundle (modalità carrello),
+        // anche a quelli fuori dalle categorie/prodotti a cui il coupon è ristretto.
+        add_filter('woocommerce_coupon_is_valid_for_product', [$this, 'force_coupon_for_bundle_items'], 10, 4);
+
         add_action('woocommerce_order_status_processing', [$this, 'reduce_stock_for_bundle_items']);
         add_action('woocommerce_cart_item_removed', [$this, 'handle_bundle_item_removed'], 10, 2);
         add_action('wp_ajax_wcb_get_variation_price', [$this, 'get_variation_price_handler']);
@@ -1437,6 +1441,7 @@ final class WC_Custom_Bundle_Framework
         update_post_meta($post_id, '_bundle_price_sublabel', wp_kses_post($_POST['_bundle_price_sublabel'] ?? ''));
         update_post_meta($post_id, '_bundle_add_as_separate_items', isset($_POST['_bundle_add_as_separate_items']) ? 'yes' : 'no');
         update_post_meta($post_id, '_bundle_shipping_override', isset($_POST['_bundle_shipping_override']) ? 'yes' : 'no');
+        update_post_meta($post_id, '_bundle_coupon_override', isset($_POST['_bundle_coupon_override']) ? 'yes' : 'no');
     }
 
     // [RESTO DELLA CLASSE INVARIATO...]
@@ -1451,6 +1456,7 @@ final class WC_Custom_Bundle_Framework
         echo '</div>';
         woocommerce_wp_checkbox(['id' => '_bundle_add_as_separate_items', 'label' => __('Modalità Carrello', 'wcb-framework'), 'description' => __('Aggiungi i prodotti scelti come articoli separati nel carrello', 'wcb-framework'), 'desc_tip' => true]);
         woocommerce_wp_checkbox(['id' => '_bundle_shipping_override', 'label' => __('Spedizione Bundle', 'wcb-framework'), 'description' => __('In modalità carrello, calcola la spedizione con peso, dimensioni e classe del bundle (tab "Spedizione") invece che con quelli dei singoli prodotti. Richiede peso o classe di spedizione impostati sul bundle.', 'wcb-framework'), 'desc_tip' => true]);
+        woocommerce_wp_checkbox(['id' => '_bundle_coupon_override', 'label' => __('Coupon su tutto il Bundle', 'wcb-framework'), 'description' => __('In modalità carrello, applica i coupon a tutti i prodotti del bundle, anche a quelli fuori dalle categorie/prodotti a cui il coupon è ristretto.', 'wcb-framework'), 'desc_tip' => true]);
         echo '<div class="options_group">';
         woocommerce_wp_textarea_input([
             'id' => '_bundle_price_sublabel',
@@ -1775,6 +1781,26 @@ final class WC_Custom_Bundle_Framework
             }
         }
         return max(0, $weight);
+    }
+
+    // COUPON BUNDLE (modalità carrello / articoli separati)
+    // Forza la validità del coupon sui figli di un bundle che ha l'override
+    // attivo, così lo sconto si applica anche ai prodotti che non rientrano
+    // nelle categorie/prodotti a cui il coupon sarebbe ristretto.
+    public function force_coupon_for_bundle_items($valid, $product, $coupon, $values)
+    {
+        // Già valido per le regole standard: niente da forzare.
+        if ($valid)
+            return true;
+        if (!is_array($values))
+            return $valid;
+        $bundle_id = $values['wcb_bundle_part_of'] ?? ($values['wcb_data']['bundle_part_of'] ?? null);
+        $parent_id = $values['wcb_parent_bundle_id'] ?? ($values['wcb_data']['parent_bundle_id'] ?? null);
+        if (!$bundle_id || !$parent_id)
+            return $valid;
+        if (get_post_meta($parent_id, '_bundle_coupon_override', true) !== 'yes')
+            return $valid;
+        return true;
     }
 
     // LOGICA PREZZI AVANZATA (ARCHITECT FIX)
