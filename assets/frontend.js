@@ -415,8 +415,23 @@ jQuery(document).ready(function ($) {
 
     $bundleForm.on('change input', '.wcb-quantity-input', function (e) {
         const $input = $(this);
-        const qty = parseInt($input.val()) || 0;
-        if (e.type === 'change' && qty < 0) $input.val(0);
+        const $group = $input.closest('.wcb-bundle-group');
+        // TETTO DI SICUREZZA sulla quantità. Senza un limite, il ciclo qui sotto
+        // crea un blocco DOM per ogni unità: un valore abnorme (es. un numero di
+        // telefono/CAP iniettato dall'autofill del browser in questo campo
+        // numerico) genererebbe milioni di iterazioni e bloccherebbe la pagina
+        // ("La pagina non risponde"). Un umano digita pochi pezzi; l'autofill no.
+        const mode = $group.data('selection-mode');
+        let cap = 1000; // massimo pezzi gestibili nella UI per singola riga
+        if (mode === 'quantity') { const t = parseInt($group.data('total-qty')) || 0; if (t > 0) cap = Math.min(cap, t); }
+        else if (mode === 'multiple_quantity') { const m = parseInt($group.data('max-qty')) || 0; if (m > 0) cap = Math.min(cap, m); }
+        const raw = parseInt($input.val());
+        let qty = isNaN(raw) ? 0 : raw;
+        if (qty < 0) qty = 0;
+        if (qty > cap) qty = cap;
+        // Riallinea il campo solo se il valore era fuori range (non disturba la
+        // digitazione né il campo vuoto).
+        if (!isNaN(raw) && raw !== qty) $input.val(qty);
         const $productItem = $input.closest('.wcb-product-item');
         const $setsContainer = $productItem.find('.wcb-variation-sets-container');
         const $variationTemplate = $productItem.find('.wcb-variation-fields-template');
@@ -437,8 +452,21 @@ jQuery(document).ready(function ($) {
         updateBundleState();
     });
 
-    $bundleForm.on('input', '.wcb-personalization-input.wcb-input-error', function () {
-        if ($(this).val().trim() !== '') { $(this).removeClass('wcb-input-error'); updateBundleState(); }
+    // Rivalida i campi di personalizzazione a ogni modifica.
+    // IMPORTANTE per l'autofill di Chrome: la compilazione automatica spesso
+    // emette 'change' (non 'input' come la digitazione) o nessun evento, e non
+    // sempre sui campi già marcati in errore. Ascoltiamo quindi sia 'input' sia
+    // 'change' su TUTTI i campi, così i valori autocompilati sbloccano il pulsante.
+    $bundleForm.on('input change', '.wcb-personalization-input', function () {
+        updateBundleState();
+    });
+
+    // Autofill di Chrome al caricamento pagina: non emette input/change, ma fa
+    // partire un'animazione CSS sullo pseudo-stato :-webkit-autofill. La
+    // intercettiamo per rivalidare (vedi keyframes 'wcbAutofillStart' in frontend.css).
+    $bundleForm.on('animationstart', '.wcb-personalization-input', function (e) {
+        const name = (e.originalEvent || e).animationName;
+        if (name === 'wcbAutofillStart') updateBundleState();
     });
 
     $addToCartButton.data('original-text', $addToCartButton.text());

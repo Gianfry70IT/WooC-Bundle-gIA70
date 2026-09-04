@@ -1027,3 +1027,14 @@ tr.cart_item.wcb-group-single td {
     display: block;
     /* Some themes make this flex, which can cause issues if not handled */
 }
+/* Rilevamento autofill di Chrome: quando il browser autocompila un campo di
+   personalizzazione, l'animazione 'wcbAutofillStart' parte e il JS rivalida
+   il bundle (Chrome non emette input/change affidabili con l'autofill). */
+@keyframes wcbAutofillStart {
+    from { /* placeholder: serve solo a far scattare animationstart */ }
+    to { }
+}
+input.wcb-personalization-input:-webkit-autofill {
+    animation-name: wcbAutofillStart;
+    animation-duration: 0.001s;
+}

@@ -230,7 +230,7 @@ $default_hide_override = get_option('wcb_default_hide_override_price', true);
                                                 <span class="wcb-product-price"><?php echo $price_html; ?></span>
                                                 <?php if ( in_array( $selection_mode, ['quantity', 'multiple_quantity'] ) ) : ?>
                                                     <div class="wcb-qty-wrapper">
-                                                        <input class="wcb-quantity-input" type="number" name="wcb_quantity[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>]" value="0" min="0" step="<?php echo esc_attr($item_step); ?>">
+                                                        <input class="wcb-quantity-input" type="number" name="wcb_quantity[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>]" value="0" min="0" max="1000" step="<?php echo esc_attr($item_step); ?>" autocomplete="off" inputmode="numeric">
                                                     </div>
                                                 <?php endif; ?>
                                             </div>

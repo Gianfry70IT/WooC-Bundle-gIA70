@@ -25,6 +25,10 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/)
 ### Aggiunto
 - ✨ **Coupon su tutto il Bundle** (modalità carrello): nuovo checkbox nel tab Generale per applicare i coupon a tutti i prodotti del bundle, anche a quelli fuori dalle categorie/prodotti a cui il coupon è ristretto. Nota: non bypassa l'opzione "Escludi articoli in saldo" del coupon
 
+### Corretto
+- 🐛 **Freeze della pagina con l'autofill di Chrome** ("La pagina non risponde"): quando il browser inseriva automaticamente un numero lungo (es. telefono o CAP) in un campo quantità, il ciclo che genera i "Pezzi" girava per milioni di iterazioni bloccando il thread. Ora la quantità è limitata a un tetto massimo (il max del gruppo, altrimenti 1000) prima di generare le righe; i campi quantità hanno anche `autocomplete="off"` e `max` per evitare del tutto l'autofill del browser
+- 🐛 Autofill di Chrome sui campi di personalizzazione: i valori autocompilati non riabilitavano il pulsante "Aggiungi al carrello" perché la validazione ascoltava solo l'evento `input`. Ora ascolta anche `change` e rileva l'autofill via animazione CSS
+
 ## [2.6.2] - 2026-07-14
 
 ### Aggiunto
