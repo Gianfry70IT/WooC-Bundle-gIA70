@@ -9,10 +9,15 @@ jQuery(document).ready(function ($) {
     const $groupsContainer = $('#bundle_groups_container');
 
     // --- UTILS ---
+    // Escape per testo e attributi nei template HTML. La & non viene toccata: i nomi prodotto
+    // arrivano già con entità (es. &#8211;) e un'entità non può chiudere un attributo né aprire un tag.
+    function escHtml(value) {
+        return String(value ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
     function formatProduct(product) {
         if (product.loading) return product.text;
-        var imageHtml = product.image_url ? `<div class="select2-result-product__image"><img src="${product.image_url}" /></div>` : '';
-        return $(`<div class="select2-result-product clearfix">${imageHtml}<div class="select2-result-product__meta"><div class="select2-result-product__title">${product.text}</div></div></div>`);
+        var imageHtml = product.image_url ? `<div class="select2-result-product__image"><img src="${escHtml(product.image_url)}" /></div>` : '';
+        return $(`<div class="select2-result-product clearfix">${imageHtml}<div class="select2-result-product__meta"><div class="select2-result-product__title">${escHtml(product.text)}</div></div></div>`);
     }
     function formatProductSelection(product) { return product.text || product.id; }
 
@@ -121,19 +126,28 @@ jQuery(document).ready(function ($) {
                 const savedStep = $preload.data('step') || 1;
                 const savedDefaultQty = $preload.data('default-qty') || 1;
                 const savedPrice = $preload.data('price') || '';
+                const savedExtraPrice = $preload.data('extra-price') || '';
+                const savedExtraLabel = $preload.attr('data-extra-label') || '';
+                const hasExtraPrice = savedExtraPrice !== '' && parseFloat(savedExtraPrice.toString().replace(',', '.')) > 0;
 
                 const rowHtml = `
                     <div class="wcb-product-setting-row" data-product-id="${pid}">
                         <div class="wcb-row-sort-handle" title="Trascina per ordinare">☰</div>
-                        <div class="wcb-row-thumb"><img src="${imageUrl}" width="40"></div>
-                        <div class="wcb-row-name"><strong>${product.text}</strong><br><small>ID: ${pid}</small></div>
+                        <div class="wcb-row-thumb"><img src="${escHtml(imageUrl)}" width="40"></div>
+                        <div class="wcb-row-name"><strong>${escHtml(product.text)}</strong><br><small>ID: ${pid}</small></div>
                         <div class="wcb-row-inputs">
-                            <label class="wcb-setting-min">Min: <input type="number" name="_bundle_groups[${groupIndex}][products_settings][${pid}][min_qty]" value="${savedMin}" min="0" class="tiny-input" title="Minima quantità selezionabile dall'utente"></label>
-                            <label class="wcb-setting-step">Step: <input type="number" name="_bundle_groups[${groupIndex}][products_settings][${pid}][step]" value="${savedStep}" min="1" class="tiny-input" title="Incrementi (es. 1, 10, 50)"></label>
+                            <label class="wcb-setting-min">Min: <input type="number" name="_bundle_groups[${groupIndex}][products_settings][${pid}][min_qty]" value="${escHtml(savedMin)}" min="0" class="tiny-input" title="Minima quantità selezionabile dall'utente"></label>
+                            <label class="wcb-setting-step">Step: <input type="number" name="_bundle_groups[${groupIndex}][products_settings][${pid}][step]" value="${escHtml(savedStep)}" min="1" class="tiny-input" title="Incrementi (es. 1, 10, 50)"></label>
                             <label class="wcb-setting-fixed" style="border-left:1px solid #ddd; padding-left:5px; margin-left:5px;">
-                                Q.tà Fissa: <input type="number" name="_bundle_groups[${groupIndex}][products_settings][${pid}][default_qty]" value="${savedDefaultQty}" min="1" class="tiny-input" style="border-color:#2271b1;" title="Quantità fissa (moltiplicatore) quando selezionato">
+                                Q.tà Fissa: <input type="number" name="_bundle_groups[${groupIndex}][products_settings][${pid}][default_qty]" value="${escHtml(savedDefaultQty)}" min="1" class="tiny-input" style="border-color:#2271b1;" title="Quantità fissa (moltiplicatore) quando selezionato">
                             </label>
-                            <label>Prezzo: <input type="text" name="_bundle_groups[${groupIndex}][products_settings][${pid}][price]" value="${savedPrice}" placeholder="€" class="wc_input_price"></label>
+                            <label>Prezzo: <input type="text" name="_bundle_groups[${groupIndex}][products_settings][${pid}][price]" value="${escHtml(savedPrice)}" placeholder="€" class="wc_input_price"></label>
+                            <label class="wcb-setting-extra-price" style="border-left:1px solid #ddd; padding-left:5px; margin-left:5px;">
+                                Extra €/cad: <input type="text" name="_bundle_groups[${groupIndex}][products_settings][${pid}][extra_unit_price]" value="${escHtml(savedExtraPrice)}" placeholder="es. 4" class="wc_input_price wcb-extra-price-input" title="Se impostato, mostra al cliente un campo '+ N' per le unità in eccesso (es. oltre il 15° dispositivo) al costo unitario indicato">
+                            </label>
+                            <label class="wcb-setting-extra-label" style="${hasExtraPrice ? '' : 'display:none;'}">
+                                Etichetta Extra: <input type="text" name="_bundle_groups[${groupIndex}][products_settings][${pid}][extra_unit_label]" value="${escHtml(savedExtraLabel)}" placeholder="es. Oltre il 15° dispositivo" class="wcb-extra-label-input" title="Testo mostrato accanto al campo +N nel frontend e nel carrello">
+                            </label>
                         </div>
                         <div class="wcb-row-actions"><button type="button" class="wcb-remove-product-row">&times;</button></div>
                     </div>`;
@@ -245,7 +259,7 @@ jQuery(document).ready(function ($) {
         let fieldsHtml = '';
         const generateFieldRow = (idx, label, required) => `
             <div class="wcb-field-row" style="display:flex; gap:10px; margin-bottom:10px; align-items:center; background:#f9f9f9; padding:10px; border:1px solid #eee;">
-                <div style="flex:1;"><label>Etichetta:</label><input type="text" name="_bundle_groups[${groupIndex}][personalization_fields][${idx}][label]" class="widefat" value="${label}"></div>
+                <div style="flex:1;"><label>Etichetta:</label><input type="text" name="_bundle_groups[${groupIndex}][personalization_fields][${idx}][label]" class="widefat" value="${escHtml(label)}"></div>
                 <div style="width:100px;"><label>Obbligatorio?</label><select name="_bundle_groups[${groupIndex}][personalization_fields][${idx}][required]" class="widefat"><option value="no" ${required !== 'yes' ? 'selected' : ''}>No</option><option value="yes" ${required === 'yes' ? 'selected' : ''}>Sì</option></select></div>
                 <div><button type="button" class="button wcb-remove-field-btn">&times;</button></div>
             </div>`;
@@ -257,17 +271,17 @@ jQuery(document).ready(function ($) {
         let optionsHtml = ''; let preloadHtml = '';
         if (products.length > 0) {
             products.forEach(p => {
-                optionsHtml += `<option value="${p.id}" data-image-url="${p.image_url}" selected="selected">${p.text}</option>`;
+                optionsHtml += `<option value="${p.id}" data-image-url="${escHtml(p.image_url)}" selected="selected">${escHtml(p.text)}</option>`;
                 const pSet = products_settings[p.id] || {};
-                preloadHtml += `<div class="wcb-preload-data" data-id="${p.id}" data-min="${pSet.min_qty || 1}" data-step="${pSet.step || 1}" data-default-qty="${pSet.default_qty || 1}" data-price="${pSet.price || ''}" style="display:none;"></div>`;
+                preloadHtml += `<div class="wcb-preload-data" data-id="${p.id}" data-min="${escHtml(pSet.min_qty || 1)}" data-step="${escHtml(pSet.step || 1)}" data-default-qty="${escHtml(pSet.default_qty || 1)}" data-price="${escHtml(pSet.price || '')}" data-extra-price="${escHtml(pSet.extra_unit_price || '')}" data-extra-label="${escHtml(pSet.extra_unit_label || '')}" style="display:none;"></div>`;
             });
         }
 
         return `
         <div class="bundle-group options_group" data-group-index="${groupIndex}">
-            <div class="group-header"><span class="sort-handle">☰</span><h3 class="group-title">${title || 'Nuovo Gruppo'}</h3><button type="button" class="button remove-group">X</button></div>
+            <div class="group-header"><span class="sort-handle">☰</span><h3 class="group-title">${escHtml(title || 'Nuovo Gruppo')}</h3><button type="button" class="button remove-group">X</button></div>
             <div class="group-content">
-                <p class="form-field"><label>Titolo Gruppo</label><input type="text" class="group-title-input" name="_bundle_groups[${groupIndex}][title]" value="${title}"></p>
+                <p class="form-field"><label>Titolo Gruppo</label><input type="text" class="group-title-input" name="_bundle_groups[${groupIndex}][title]" value="${escHtml(title)}"></p>
                 
                 <div class="wcb-products-section">
                     <label class="label-aggiungi-prodotti">Cerca e Aggiungi Prodotti</label>
@@ -287,11 +301,11 @@ jQuery(document).ready(function ($) {
                             <option value="multiple_quantity" ${selection_mode === 'multiple_quantity' ? 'selected' : ''}>Qty Multipla</option>
                         </select>
                     </p>
-                    <p class="form-field half-width rule-field rule-multiple" style="display:${['multiple', 'multiple_quantity'].includes(selection_mode) ? 'block' : 'none'}"><label>Min Qty</label><input type="number" name="_bundle_groups[${groupIndex}][min_qty]" value="${min_qty}" min="0"></p>
-                    <p class="form-field half-width rule-field rule-multiple" style="display:${['multiple', 'multiple_quantity'].includes(selection_mode) ? 'block' : 'none'}"><label>Max Qty</label><input type="number" name="_bundle_groups[${groupIndex}][max_qty]" value="${max_qty}" min="0"></p>
-                    <p class="form-field rule-field rule-quantity" style="display:${selection_mode === 'quantity' ? 'block' : 'none'}"><label>Totale Esatto</label><input type="number" name="_bundle_groups[${groupIndex}][total_qty]" value="${total_qty}" min="1"></p>
+                    <p class="form-field half-width rule-field rule-multiple" style="display:${['multiple', 'multiple_quantity'].includes(selection_mode) ? 'block' : 'none'}"><label>Min Qty</label><input type="number" name="_bundle_groups[${groupIndex}][min_qty]" value="${escHtml(min_qty)}" min="0"></p>
+                    <p class="form-field half-width rule-field rule-multiple" style="display:${['multiple', 'multiple_quantity'].includes(selection_mode) ? 'block' : 'none'}"><label>Max Qty</label><input type="number" name="_bundle_groups[${groupIndex}][max_qty]" value="${escHtml(max_qty)}" min="0"></p>
+                    <p class="form-field rule-field rule-quantity" style="display:${selection_mode === 'quantity' ? 'block' : 'none'}"><label>Totale Esatto</label><input type="number" name="_bundle_groups[${groupIndex}][total_qty]" value="${escHtml(total_qty)}" min="1"></p>
                     
-                    <p class="form-field"><label>Prezzo Override Gruppo (€)</label><input type="text" name="_bundle_groups[${groupIndex}][price_override]" value="${price_override}" class="wc_input_price" placeholder="Opzionale"></p>
+                    <p class="form-field"><label>Prezzo Override Gruppo (€)</label><input type="text" name="_bundle_groups[${groupIndex}][price_override]" value="${escHtml(price_override)}" class="wc_input_price" placeholder="Opzionale"></p>
                     
                     <p class="form-field" style="display:none;"><label>Mostra Prezzi Item</label>
                         <select name="_bundle_groups[${groupIndex}][show_price_behavior]">
@@ -389,6 +403,15 @@ jQuery(document).ready(function ($) {
     });
 
     $groupsContainer.on('keyup', '.group-title-input', function () { $(this).closest('.bundle-group').find('.group-title').text($(this).val() || 'Nuovo Gruppo'); });
+    $groupsContainer.on('keyup change', '.wcb-extra-price-input', function () {
+        const val = parseFloat(($(this).val() || '').toString().replace(',', '.')) || 0;
+        const $labelWrap = $(this).closest('.wcb-row-inputs').find('.wcb-setting-extra-label');
+        if (val > 0) {
+            $labelWrap.fadeIn(150);
+        } else {
+            $labelWrap.hide();
+        }
+    });
     $groupsContainer.on('change', '.personalization-enable', function () { $(this).closest('.group-content').find('.personalization-options').slideToggle($(this).is(':checked')); });
 
     $groupsContainer.on('click', '.wcb-add-field-btn', function () {

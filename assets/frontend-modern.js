@@ -62,25 +62,32 @@ jQuery(document).ready(function ($) {
     // Memorizza l'ultimo prezzo per animazione
     let lastPrice = 0;
 
-    // Intercetta l'aggiornamento del prezzo
-    const originalUpdateBundlePrice = window.updateBundlePrice;
+    function animatePriceChange(currentPrice) {
+        const $priceElement = $('.wcb-price-value');
+        const numericPrice = typeof currentPrice === 'number'
+            ? currentPrice
+            : parseFloat($priceElement.first().text().replace(/[^\d.,]/g, '').replace(',', '.'));
+
+        if (lastPrice > 0 && numericPrice !== lastPrice) {
+            $priceElement.addClass('price-changing');
+            setTimeout(() => {
+                $priceElement.removeClass('price-changing');
+            }, 300);
+        }
+
+        lastPrice = numericPrice;
+    }
+
+    $(document).on('wcb_bundle_price_updated', function (e, finalPrice) {
+        animatePriceChange(finalPrice);
+    });
+
+    // Intercetta l'aggiornamento del prezzo esposto globalmente
+    const originalUpdateBundlePrice = window.wcb_updateBundlePrice || window.updateBundlePrice;
     if (typeof originalUpdateBundlePrice === 'function') {
-        window.updateBundlePrice = function () {
-            const $priceElement = $('.wcb-price-value');
-            const currentPrice = parseFloat($priceElement.text().replace(/[^\d.,]/g, '').replace(',', '.'));
-
-            // Anima il cambiamento del prezzo
-            if (lastPrice > 0 && currentPrice !== lastPrice) {
-                $priceElement.addClass('price-changing');
-                setTimeout(() => {
-                    $priceElement.removeClass('price-changing');
-                }, 300);
-            }
-
-            lastPrice = currentPrice;
-
-            // Chiama la funzione originale
+        window.wcb_updateBundlePrice = window.updateBundlePrice = function () {
             originalUpdateBundlePrice();
+            animatePriceChange();
         };
     }
 
@@ -88,7 +95,9 @@ jQuery(document).ready(function ($) {
     // 3. PROGRESS INDICATOR
     // =========================================================================
     function createProgressIndicator() {
-        const $groups = $('.wcb-bundle-group');
+        if ($('.wcb-progress-indicator').length > 0) return;
+
+        const $groups = $('.wcb-bundle-group:visible');
         if ($groups.length > 1) {
             const $progress = $(`
                 <div class="wcb-progress-indicator">
@@ -96,59 +105,68 @@ jQuery(document).ready(function ($) {
                 </div>
             `);
 
-            $('.wcb-bundle-container').prepend($progress);
-
-            // Crea steps
-            $groups.each(function (index) {
+            // Crea steps solo per i gruppi visibili
+            $groups.each(function (stepIdx) {
                 const $group = $(this);
-                const title = $group.find('.wcb-group-title').text().substring(0, 15) + '...';
-                const isRequired = $group.data('is-required') === 'true';
+                const groupIndex = $group.data('group-index');
+                const rawTitle = $group.find('.wcb-group-title').clone().children().remove().end().text().trim();
+                const title = rawTitle.length > 20 ? rawTitle.substring(0, 20).trim() + '…' : rawTitle;
+                const isRequired = $group.data('is-required') === true || $group.data('is-required') === 'true';
 
                 const $step = $(`
-                    <div class="wcb-progress-step" data-group-index="${index}">
+                    <div class="wcb-progress-step" style="cursor: pointer;">
                         <div class="wcb-step-circle">
-                            <span class="wcb-step-number">${index + 1}</span>
+                            <span class="wcb-step-number">${stepIdx + 1}</span>
                             ${isRequired ? '<span class="wcb-step-required">*</span>' : ''}
                         </div>
-                        <div class="wcb-step-title">${title}</div>
+                        <div class="wcb-step-title"></div>
                     </div>
                 `);
+                // Titolo inserito come testo: rawTitle arriva già decodificato da .text()
+                $step.attr({ 'data-group-index': groupIndex, title: rawTitle });
+                $step.find('.wcb-step-title').text(title);
 
-                $('.wcb-progress-indicator').append($step);
+                $step.on('click', function () {
+                    $('html, body').animate({
+                        scrollTop: $group.offset().top - 100
+                    }, 350);
+                });
+
+                $progress.append($step);
             });
+
+            $('.wcb-bundle-container').prepend($progress);
         }
     }
 
-    // Aggiorna progress indicator
+    // Aggiorna progress indicator sincronizzandolo con lo stato reale dei gruppi (complete / incomplete / opzionale neutro)
     function updateProgressIndicator() {
-        $('.wcb-bundle-group').each(function (index) {
+        $('.wcb-bundle-group:visible').each(function () {
             const $group = $(this);
-            const $step = $(`.wcb-progress-step[data-group-index="${index}"]`);
+            const groupIndex = $group.data('group-index');
+            const $step = $(`.wcb-progress-step[data-group-index="${groupIndex}"]`);
 
-            // ARCHITECT FIX: Usiamo la funzione globale esposta da frontend.js
-            // Verifichiamo prima che esista per evitare crash
-            let isValid = false;
-
-            if (typeof window.wcb_validateGroup === 'function') {
-                isValid = window.wcb_validateGroup($group);
+            if ($group.hasClass('wcb-group-complete')) {
+                $step.addClass('completed').removeClass('incomplete');
+            } else if ($group.hasClass('wcb-group-incomplete')) {
+                $step.addClass('incomplete').removeClass('completed');
             } else {
-                console.warn('wcb_validateGroup non ancora caricata');
-            }
-
-            if (isValid) {
-                $step.addClass('completed');
-                $step.removeClass('incomplete');
-            } else {
-                $step.addClass('incomplete');
-                $step.removeClass('completed');
+                $step.removeClass('completed incomplete');
             }
         });
     }
 
+    $(document).on('wcb_bundle_state_updated', function () {
+        if ($('.wcb-progress-indicator').length === 0) {
+            createProgressIndicator();
+        }
+        updateProgressIndicator();
+    });
+
     // Hook nell'updateBundleState esistente
-    if (typeof window.updateBundleState === 'function') {
-        const originalUpdateBundleState = window.updateBundleState;
-        window.updateBundleState = function () {
+    const originalUpdateBundleState = window.wcb_updateBundleState || window.updateBundleState;
+    if (typeof originalUpdateBundleState === 'function') {
+        window.wcb_updateBundleState = window.updateBundleState = function () {
             originalUpdateBundleState();
             if ($('.wcb-progress-indicator').length === 0) {
                 createProgressIndicator();
@@ -193,7 +211,9 @@ jQuery(document).ready(function ($) {
     // 6. INIZIALIZZAZIONE
     // =========================================================================
     setTimeout(() => {
-        createProgressIndicator();
+        if ($('.wcb-progress-indicator').length === 0) {
+            createProgressIndicator();
+        }
         addTooltips();
         updateProgressIndicator();
     }, 500);

@@ -108,7 +108,7 @@ jQuery(document).ready(function ($) {
         $.ajax({
             type: 'POST',
             url: wcb_params.ajax_url,
-            data: { action: 'wcb_add_bundle_to_cart', security: wcb_params.nonce, form_data: $bundleForm.serialize() },
+            data: { action: 'wcb_add_bundle_to_cart', security: wcb_params.nonce, form_data: $(this).serialize() },
             success: function (response) {
                 if (response.success) {
                     $messagesContainer.html('<div class="woocommerce-message">' + response.data.message + '</div>').slideDown();
@@ -215,10 +215,22 @@ jQuery(document).ready(function ($) {
 
     window.wcb_validateGroup = validateGroup;
     window.wcb_updateBundleState = updateBundleState;
+    window.wcb_updateBundlePrice = updateBundlePrice;
 
     // =========================================================================
     // 5. CALCOLO PREZZO (FIXED)
     // =========================================================================
+    function getPricingConfig() {
+        const formPricing = $bundleForm.first().data('pricing');
+        if (formPricing && typeof formPricing === 'object') {
+            return formPricing;
+        }
+        if (typeof wcb_params !== 'undefined' && wcb_params.pricing) {
+            return wcb_params.pricing;
+        }
+        return null;
+    }
+
     function getVariationPrice(productId, attributes, callback) {
         $.ajax({
             url: wcb_params.ajax_url, type: 'POST',
@@ -228,38 +240,76 @@ jQuery(document).ready(function ($) {
         });
     }
 
-    function parsePriceFromElement($element) {
-        if (!$element || $element.length === 0) return 0;
-        const text = $element.find('ins').length > 0 ? $element.find('ins').text() : $element.text();
-        const clean = text.replace(wcb_params.pricing.currency_symbol, '')
-            .replace(wcb_params.pricing.thousand_separator, '')
-            .replace(wcb_params.pricing.decimal_separator, '.').trim();
-        return parseFloat(clean) || 0;
-    }
-
     // Helper per pulire stringhe prezzo provenienti da attributi data (che potrebbero avere virgole)
     function parseDataPrice(value) {
         if (value === undefined || value === null || value === '') return 0;
-        // Se è già un numero, ritornalo
-        if (typeof value === 'number') return value;
-        // Sostituisci virgola con punto e rimuovi simboli non numerici (eccetto punto e meno)
+        if (typeof value === 'number') return isNaN(value) ? 0 : value;
         const clean = value.toString().replace(',', '.').replace(/[^0-9.-]/g, '');
         return parseFloat(clean) || 0;
     }
 
-    function finalizePriceCalculation(totalPrice) {
-        const pricing = wcb_params.pricing;
-        let finalPrice = totalPrice;
-        if (pricing.type === 'calculated') {
-            if (pricing.discount_percentage > 0) finalPrice *= (1 - (pricing.discount_percentage / 100));
-            if (pricing.discount_amount > 0) finalPrice = Math.max(0, finalPrice - pricing.discount_amount);
-        } else if (pricing.type === 'fixed') {
-            finalPrice = parseFloat(pricing.fixed_price);
+    function parsePriceFromElement($element, $item) {
+        if ($element && $element.length > 0) {
+            let $priceNode = $element.find('ins .woocommerce-Price-amount').first();
+            if ($priceNode.length === 0) {
+                $priceNode = $element.find('.woocommerce-Price-amount').not('.woocommerce-price-suffix .woocommerce-Price-amount').last(); // esclude il suffisso tipo "IVA esclusa"
+            }
+            if ($priceNode.length === 0) {
+                $priceNode = $element.find('ins').length > 0 ? $element.find('ins').first() : $element;
+            }
+            const pricing = getPricingConfig() || {};
+            const thousandSep = pricing.thousand_separator || '';
+            const decimalSep = pricing.decimal_separator || ',';
+            let text = $priceNode.clone().find('.woocommerce-price-suffix, small').remove().end().text() || '';
+            if (thousandSep) {
+                text = text.split(thousandSep).join('');
+            }
+            if (decimalSep && decimalSep !== '.') {
+                text = text.split(decimalSep).join('.');
+            }
+            const clean = text.replace(/[^0-9.-]/g, '').trim();
+            const parsed = parseFloat(clean);
+            if (!isNaN(parsed) && parsed > 0) {
+                return parsed;
+            }
         }
-        let formattedPrice = finalPrice.toFixed(2).replace('.', wcb_params.pricing.decimal_separator);
-        if (wcb_params.pricing.currency_position.includes('left')) formattedPrice = wcb_params.pricing.currency_symbol + formattedPrice;
-        else formattedPrice = formattedPrice + wcb_params.pricing.currency_symbol;
+        if ($item && $item.length > 0) {
+            const fallback = parseDataPrice($item.attr('data-base-price'));
+            if (fallback > 0) return fallback;
+        }
+        return 0;
+    }
+
+    function formatPriceValue(amount) {
+        const pricing = getPricingConfig() || {};
+        const decimalSep = pricing.decimal_separator || ',';
+        const currencySymbol = pricing.currency_symbol || '€';
+        const currencyPos = pricing.currency_position || 'right';
+        let formatted = (parseFloat(amount) || 0).toFixed(2).replace('.', decimalSep);
+        if (currencyPos === 'left_space') formatted = currencySymbol + ' ' + formatted;
+        else if (currencyPos.includes('left')) formatted = currencySymbol + formatted;
+        else if (currencyPos === 'right_space') formatted = formatted + ' ' + currencySymbol;
+        else formatted = formatted + currencySymbol;
+        return formatted;
+    }
+
+    function finalizePriceCalculation(totalPrice, extraSurchargeTotal = 0) {
+        const pricing = getPricingConfig();
+        if (!pricing) return;
+        let finalPrice = totalPrice;
+        const fixedPrice = parseDataPrice(pricing.fixed_price);
+        if (pricing.type === 'fixed' && fixedPrice > 0) {
+            finalPrice = fixedPrice;
+        } else {
+            const discPct = parseDataPrice(pricing.discount_percentage);
+            const discAmt = parseDataPrice(pricing.discount_amount);
+            if (discPct > 0) finalPrice *= (1 - (discPct / 100));
+            if (discAmt > 0) finalPrice = Math.max(0, finalPrice - discAmt);
+        }
+        finalPrice += (parseFloat(extraSurchargeTotal) || 0);
+        let formattedPrice = formatPriceValue(finalPrice);
         $('.wcb-price-value').html(formattedPrice);
+        $(document).trigger('wcb_bundle_price_updated', [finalPrice, formattedPrice]);
     }
 
     // Risolve il prezzo della variazione selezionata nei select di $container,
@@ -282,21 +332,28 @@ jQuery(document).ready(function ($) {
                 // Attributo vuoto nella variazione = "qualsiasi valore"
                 if (variation[attr] && variation[attr] !== selection[attr]) { isMatch = false; break; }
             }
-            if (isMatch && variation._price !== undefined) return parseDataPrice(variation._price);
+            if (isMatch && variation._price !== undefined && variation._price !== null && variation._price !== '') {
+                const vPrice = parseDataPrice(variation._price);
+                if (vPrice > 0) return vPrice;
+            }
         }
         return null;
     }
 
     // --- FUNZIONE CRITICA AGGIORNATA ---
     function updateBundlePrice() {
-        if (typeof wcb_params.pricing === 'undefined') return;
+        if (!getPricingConfig()) return;
         let bundleTotal = 0;
+        let bundleExtraSurcharge = 0;
         let pendingRequests = 0;
 
         $('.wcb-bundle-group').each(function () {
             const $group = $(this);
-            // FIX: Usa parseDataPrice per gestire virgole e formati valuta
-            const groupOverride = parseDataPrice($group.data('group-price-override'));
+            const mode = $group.data('selection-mode');
+            // FIX: Override di gruppo applicabile solo alle modalità single/multiple
+            const groupOverride = (mode === 'single' || mode === 'multiple')
+                ? parseDataPrice($group.attr('data-group-price-override'))
+                : 0;
 
             let groupItemTotal = 0;
             let groupSelectedQty = 0; // FIX: Contatore quantità reale
@@ -312,14 +369,18 @@ jQuery(document).ready(function ($) {
                 else if ($checkbox.length > 0 && $checkbox.is(':checked')) quantity = 1;
                 else if ($quantityInput.length > 0) quantity = parseInt($quantityInput.val(), 10) || 0;
 
+                const extraUnitPrice = parseDataPrice($item.attr('data-extra-unit-price'));
+                const $extraInput = $item.find('.wcb-extra-units-input');
+                const $extraSubtotal = $item.find('.wcb-extra-units-subtotal');
+
                 if (quantity > 0) {
                     groupSelectedQty += quantity; // Incrementa il contatore "prodotti scelti"
 
-                    const itemOverride = $item.data('price-override');
+                    const itemOverride = $item.attr('data-price-override');
                     if (itemOverride !== undefined && itemOverride !== null && itemOverride !== '') {
-                        groupItemTotal += parseFloat(itemOverride) * quantity;
+                        groupItemTotal += parseDataPrice(itemOverride) * quantity;
                     } else {
-                        const basePrice = parsePriceFromElement($item.find('.wcb-product-price'));
+                        const basePrice = parsePriceFromElement($item.find('.wcb-product-price'), $item);
                         const $variationSets = $item.find('.wcb-variation-sets-container .wcb-variation-set');
                         if ($variationSets.length > 0) {
                             // Modalità a quantità: ogni "Pezzo" può avere una variazione (e prezzo) diversa
@@ -332,13 +393,27 @@ jQuery(document).ready(function ($) {
                             groupItemTotal += (variationPrice !== null ? variationPrice : basePrice) * quantity;
                         }
                     }
+
+                    if ($extraInput.length > 0 && extraUnitPrice > 0) {
+                        const extraUnits = Math.max(0, parseInt($extraInput.val(), 10) || 0);
+                        const extraCost = extraUnits * extraUnitPrice;
+                        bundleExtraSurcharge += extraCost;
+                        if ($extraSubtotal.length > 0) {
+                            if (extraUnits > 0) {
+                                $extraSubtotal.text('+' + formatPriceValue(extraCost)).addClass('has-extra');
+                            } else {
+                                $extraSubtotal.text('').removeClass('has-extra');
+                            }
+                        }
+                    }
+                } else if ($extraSubtotal.length > 0) {
+                    $extraSubtotal.text('').removeClass('has-extra');
                 }
             });
 
             // LOGICA OVERRIDE GRUPPO CORRETTA:
             // Se c'è un override valido E abbiamo selezionato almeno un prodotto (quantità > 0)
             // Allora il totale del gruppo è l'override.
-            // Ignoriamo groupItemTotal perché potrebbe essere 0 se i prezzi sono nascosti.
             if (groupOverride > 0 && groupSelectedQty > 0) {
                 bundleTotal += groupOverride;
             } else {
@@ -346,7 +421,7 @@ jQuery(document).ready(function ($) {
             }
         });
 
-        if (pendingRequests === 0) finalizePriceCalculation(bundleTotal);
+        if (pendingRequests === 0) finalizePriceCalculation(bundleTotal, bundleExtraSurcharge);
     }
 
     function updateBundleState() {
@@ -368,6 +443,7 @@ jQuery(document).ready(function ($) {
         $addToCartButton.prop('disabled', !isBundleComplete);
         $('.wcb-mobile-submit-btn').prop('disabled', !isBundleComplete);
         updateBundlePrice();
+        $(document).trigger('wcb_bundle_state_updated', [isBundleComplete]);
     }
 
     // =========================================================================
@@ -403,13 +479,25 @@ jQuery(document).ready(function ($) {
         const $productItem = $input.closest('.wcb-product-item');
         const $variationContainer = $productItem.find('.wcb-variation-container');
         const $personalizationContainer = $productItem.find('.wcb-personalization-field-container');
+        const $extraUnitsContainer = $productItem.find('.wcb-extra-units-container');
         if ($input.is('[type="radio"]')) {
             const $otherProductItems = $input.closest('.wcb-group-products').find('.wcb-product-item').not($productItem);
+            $otherProductItems.removeClass('selected');
             $otherProductItems.find('.wcb-variation-container').slideUp().find('select').prop('disabled', true);
             $otherProductItems.find('.wcb-personalization-field-container').slideUp();
+            $otherProductItems.find('.wcb-extra-units-container').slideUp();
         }
-        if ($input.is(':checked')) { $variationContainer.slideDown().find('select').prop('disabled', false).first().trigger('change'); $personalizationContainer.slideDown(); }
-        else { $variationContainer.slideUp().find('select').prop('disabled', true); $personalizationContainer.slideUp(); }
+        if ($input.is(':checked')) {
+            $productItem.addClass('selected');
+            $variationContainer.slideDown().find('select').prop('disabled', false).first().trigger('change');
+            $personalizationContainer.slideDown();
+            $extraUnitsContainer.slideDown();
+        } else {
+            $productItem.removeClass('selected');
+            $variationContainer.slideUp().find('select').prop('disabled', true);
+            $personalizationContainer.slideUp();
+            $extraUnitsContainer.slideUp();
+        }
         updateBundleState();
     });
 
@@ -436,20 +524,43 @@ jQuery(document).ready(function ($) {
         const $setsContainer = $productItem.find('.wcb-variation-sets-container');
         const $variationTemplate = $productItem.find('.wcb-variation-fields-template');
         const $personalizationTemplate = $productItem.find('.wcb-personalization-field-template');
-        $setsContainer.empty();
+        const existingCount = $setsContainer.children('.wcb-variation-set').length;
         if (qty > 0) {
-            for (let i = 0; i < qty; i++) {
-                const $newSet = $('<div class="wcb-variation-set"><h5>' + 'Pezzo ' + (i + 1) + '</h5></div>');
-                if ($variationTemplate.length > 0) {
-                    const html = $variationTemplate.html().replace(/__INDEX__/g, i);
-                    $newSet.append($(html).find('select').prop('disabled', false).end());
+            $productItem.addClass('selected');
+            if (existingCount < qty) {
+                for (let i = existingCount; i < qty; i++) {
+                    const $newSet = $('<div class="wcb-variation-set"><h5>' + 'Pezzo ' + (i + 1) + '</h5></div>');
+                    if ($variationTemplate.length > 0) {
+                        const html = $variationTemplate.html().replace(/__INDEX__/g, i);
+                        $newSet.append($(html).find('select').prop('disabled', false).end());
+                    }
+                    if ($personalizationTemplate.length > 0) $newSet.append($personalizationTemplate.html().replace(/__INDEX__/g, i));
+                    $setsContainer.append($newSet);
                 }
-                if ($personalizationTemplate.length > 0) $newSet.append($personalizationTemplate.html().replace(/__INDEX__/g, i));
-                $setsContainer.append($newSet);
+            } else if (existingCount > qty) {
+                $setsContainer.children('.wcb-variation-set').slice(qty).remove();
             }
-            $setsContainer.slideDown();
-        } else { $setsContainer.slideUp(); }
+            if (!$setsContainer.is(':visible')) {
+                $setsContainer.slideDown();
+            }
+            $productItem.find('.wcb-extra-units-container').slideDown();
+        } else {
+            $setsContainer.empty();
+            $productItem.removeClass('selected');
+            $setsContainer.slideUp();
+            $productItem.find('.wcb-extra-units-container').slideUp();
+        }
         updateBundleState();
+    });
+
+    $bundleForm.on('change input', '.wcb-extra-units-input', function () {
+        const $input = $(this);
+        const raw = parseInt($input.val(), 10);
+        let extraQty = isNaN(raw) ? 0 : raw;
+        if (extraQty < 0) extraQty = 0;
+        if (extraQty > 1000) extraQty = 1000;
+        if (!isNaN(raw) && raw !== extraQty) $input.val(extraQty);
+        updateBundlePrice();
     });
 
     // Rivalida i campi di personalizzazione a ogni modifica.
@@ -514,6 +625,11 @@ jQuery(document).ready(function ($) {
                         $checkbox.prop('checked', true).trigger('change');
                         if (items[0].is_variation) waitForAndPopulate($productItem.find('.wcb-variation-container'), items[0].attributes);
                         if (items[0].personalization_data) setTimeout(() => { fillPersonalization($productItem.find('.wcb-personalization-field-container'), items[0].personalization_data); }, 300);
+                    }
+                    const totalExtraUnits = items.reduce((sum, it) => sum + (parseInt(it.extra_units, 10) || 0), 0);
+                    const $extraInput = $productItem.find('.wcb-extra-units-input');
+                    if ($extraInput.length && totalExtraUnits > 0) {
+                        setTimeout(function () { $extraInput.val(totalExtraUnits).trigger('change'); }, 150);
                     }
                     const $qtyInput = $productItem.find('.wcb-quantity-input');
                     if ($qtyInput.length) {
@@ -593,5 +709,39 @@ jQuery(document).ready(function ($) {
         });
         $(document).off('keyup.wcb-lb').on('keyup.wcb-lb', function (e) { if (e.key === 'Escape') window.closeLightbox(); });
         $(document).off('click.wcb-lb-img').on('click.wcb-lb-img', '.wcb-lightbox-image', function (e) { e.stopPropagation(); });
+
+        // 10. MODALE DESCRIZIONE COMPLETA PRODOTTO
+        $bundleForm.off('click.wcb-desc', '.wcb-open-desc-modal').on('click.wcb-desc', '.wcb-open-desc-modal', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const $btn = $(this);
+            const $item = $btn.closest('.wcb-product-item');
+            const $tpl = $item.find('.wcb-full-description-template');
+            if ($tpl.length === 0) return false;
+            const title = $tpl.attr('data-product-title') || $item.find('.wcb-product-name').text().trim();
+            const html = $tpl.html();
+            const modalEl = document.getElementById('wcb-desc-modal');
+            if (!modalEl) return false;
+            $(modalEl).find('.wcb-desc-modal-title').text(title);
+            $(modalEl).find('.wcb-desc-modal-body').html(html);
+            if (typeof modalEl.showModal === 'function') {
+                if (!modalEl.open) modalEl.showModal();
+            } else {
+                $(modalEl).attr('open', 'open').addClass('show');
+            }
+            return false;
+        });
+
+        $(document).off('click.wcb-desc-close').on('click.wcb-desc-close', '.wcb-desc-modal-close, #wcb-desc-modal', function (e) {
+            const modalEl = document.getElementById('wcb-desc-modal');
+            if (!modalEl) return;
+            if (e.target === modalEl || $(e.target).closest('.wcb-desc-modal-close').length > 0) {
+                if (typeof modalEl.close === 'function' && modalEl.open) {
+                    modalEl.close();
+                } else {
+                    $(modalEl).removeAttr('open').removeClass('show');
+                }
+            }
+        });
     }
 }); // END READY

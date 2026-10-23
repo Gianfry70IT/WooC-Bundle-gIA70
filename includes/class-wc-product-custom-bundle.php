@@ -10,6 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('WC_Product_Custom_Bundle')) {
 class WC_Product_Custom_Bundle extends WC_Product
 {
 
@@ -27,4 +28,5 @@ class WC_Product_Custom_Bundle extends WC_Product
     {
         return true;
     }
+}
 }

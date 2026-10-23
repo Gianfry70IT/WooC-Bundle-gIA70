@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WooC Bundle gIA70
  * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           2.6.2
+ * Version:           2.8.0
  * Author:            gIA70 - Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -20,6 +20,13 @@ if (!defined('WCB_MODERN_THEME_DEFAULT')) {
 if (!defined('ABSPATH'))
     exit;
 
+// Se un'altra copia del plugin (es. cartella con nome diverso) è già stata caricata, questa si ferma qui
+if (defined('WCB_PLUGIN_LOADED') || class_exists('WCB_Theme_Settings', false) || class_exists('WC_Custom_Bundle_Framework', false)) {
+    return;
+}
+define('WCB_PLUGIN_LOADED', true);
+
+if (!class_exists('WCB_Theme_Settings', false)) :
 // Gestione Impostazioni & Documentazione
 class WCB_Theme_Settings
 {
@@ -42,11 +49,147 @@ class WCB_Theme_Settings
 
     public function register_settings()
     {
-        register_setting('wcb_theme_settings', 'wcb_enable_modern_theme', ['type' => 'boolean', 'default' => WCB_MODERN_THEME_DEFAULT, 'sanitize_callback' => 'rest_sanitize_boolean']);
-        register_setting('wcb_theme_settings', 'wcb_enable_modern_theme', ['type' => 'boolean', 'default' => WCB_MODERN_THEME_DEFAULT, 'sanitize_callback' => 'rest_sanitize_boolean']);
-        register_setting('wcb_theme_settings', 'wcb_bundle_display_position', ['type' => 'string', 'default' => 'after_summary', 'sanitize_callback' => 'sanitize_text_field']);
+        if (!get_option('wcb_reset_style_277')) {
+            update_option('wcb_style_mode', 'classic');
+            update_option('wcb_enable_modern_theme', 0);
+            update_option('wcb_reset_style_277', 1);
+            if (function_exists('wp_cache_delete')) {
+                wp_cache_delete('alloptions', 'options');
+            }
+        }
+
+        $flush_cache_cb = function ($clean) {
+            if (function_exists('wp_cache_delete')) {
+                wp_cache_delete('alloptions', 'options');
+            }
+            if (function_exists('do_action')) {
+                do_action('litespeed_purge_all');
+            }
+            return $clean;
+        };
+
+        register_setting('wcb_theme_settings', 'wcb_style_mode', [
+            'type' => 'string',
+            'default' => 'classic',
+            'sanitize_callback' => function ($val) use ($flush_cache_cb) {
+                $clean = sanitize_text_field($val);
+                if (!in_array($clean, ['classic', 'modern', 'theme_native'], true)) {
+                    $clean = 'classic';
+                }
+                update_option('wcb_enable_modern_theme', $clean === 'modern' ? 1 : 0);
+                return $flush_cache_cb($clean);
+            }
+        ]);
+        register_setting('wcb_theme_settings', 'wcb_header_style', ['type' => 'string', 'default' => 'auto', 'sanitize_callback' => function ($v) use ($flush_cache_cb) { return $flush_cache_cb(sanitize_text_field($v)); }]);
+        register_setting('wcb_theme_settings', 'wcb_items_layout', ['type' => 'string', 'default' => 'list', 'sanitize_callback' => function ($v) use ($flush_cache_cb) { return $flush_cache_cb(sanitize_text_field($v)); }]);
+        register_setting('wcb_theme_settings', 'wcb_grid_columns', ['type' => 'integer', 'default' => 3, 'sanitize_callback' => function ($v) use ($flush_cache_cb) { return $flush_cache_cb(absint($v)); }]);
+        register_setting('wcb_theme_settings', 'wcb_summary_position', ['type' => 'string', 'default' => 'sidebar', 'sanitize_callback' => function ($v) use ($flush_cache_cb) { return $flush_cache_cb(sanitize_text_field($v)); }]);
+        register_setting('wcb_theme_settings', 'wcb_bundle_display_position', ['type' => 'string', 'default' => 'after_summary', 'sanitize_callback' => function ($v) use ($flush_cache_cb) { return $flush_cache_cb(sanitize_text_field($v)); }]);
         register_setting('wcb_theme_settings', 'wcb_default_hide_override_price', ['type' => 'boolean', 'default' => true, 'sanitize_callback' => 'rest_sanitize_boolean']);
-        register_setting('wcb_theme_settings', 'wcb_default_hide_override_price', ['type' => 'boolean', 'default' => true, 'sanitize_callback' => 'rest_sanitize_boolean']);
+    }
+
+    public static function get_global_style_mode()
+    {
+        if (!get_option('wcb_reset_style_277')) {
+            update_option('wcb_style_mode', 'classic');
+            update_option('wcb_enable_modern_theme', 0);
+            update_option('wcb_reset_style_277', 1);
+            return 'classic';
+        }
+        $mode = get_option('wcb_style_mode', 'classic');
+        if (!in_array($mode, ['classic', 'modern', 'theme_native'], true)) {
+            return 'classic';
+        }
+        return $mode;
+    }
+
+    public static function get_bundle_layout_settings($product_id = 0)
+    {
+        $global_style = self::get_global_style_mode();
+        $global_header = get_option('wcb_header_style', 'auto');
+        if (!in_array($global_header, ['auto', 'hero', 'wc_native'], true)) {
+            $global_header = 'auto';
+        }
+
+        $global_layout = get_option('wcb_items_layout', 'list');
+        if (!in_array($global_layout, ['list', 'grid'], true)) {
+            $global_layout = 'list';
+        }
+
+        $global_cols = absint(get_option('wcb_grid_columns', 3));
+        if ($global_cols < 2 || $global_cols > 4) {
+            $global_cols = 3;
+        }
+
+        $global_summary = get_option('wcb_summary_position', 'sidebar');
+        if (!in_array($global_summary, ['sidebar', 'bottom', 'bottom_fixed', 'top_fixed'], true)) {
+            $global_summary = 'sidebar';
+        }
+
+        $global_display_pos = get_option('wcb_bundle_display_position', 'after_summary');
+        if (!in_array($global_display_pos, ['after_summary', 'inside_summary', 'after_tabs', 'manual'], true)) {
+            $global_display_pos = 'after_summary';
+        }
+
+        $style = $global_style;
+        $header = $global_header;
+        $layout = $global_layout;
+        $cols = $global_cols;
+        $summary = $global_summary;
+        $display_pos = $global_display_pos;
+
+        if ($product_id > 0) {
+            $b_style = get_post_meta($product_id, '_bundle_style_mode', true);
+            if (in_array($b_style, ['classic', 'modern', 'theme_native'], true)) {
+                $style = $b_style;
+            }
+
+            $b_header = get_post_meta($product_id, '_bundle_header_style', true);
+            if (in_array($b_header, ['auto', 'hero', 'wc_native'], true)) {
+                $header = $b_header;
+            }
+
+            $b_layout = get_post_meta($product_id, '_bundle_items_layout', true);
+            if (in_array($b_layout, ['list', 'grid'], true)) {
+                $layout = $b_layout;
+            }
+
+            $b_cols = get_post_meta($product_id, '_bundle_grid_columns', true);
+            if (in_array((string) $b_cols, ['2', '3', '4'], true)) {
+                $cols = absint($b_cols);
+            }
+
+            $b_summary = get_post_meta($product_id, '_bundle_summary_position', true);
+            if (in_array($b_summary, ['sidebar', 'bottom', 'bottom_fixed', 'top_fixed'], true)) {
+                $summary = $b_summary;
+            }
+
+            $b_pos = get_post_meta($product_id, '_bundle_display_position', true);
+            if (in_array($b_pos, ['after_summary', 'inside_summary', 'after_tabs', 'manual'], true)) {
+                $display_pos = $b_pos;
+            }
+        }
+
+        $is_block_theme = function_exists('wp_is_block_theme') && wp_is_block_theme();
+        $resolved_header = $header;
+        if ($header === 'auto') {
+            if ($style === 'theme_native' || $display_pos === 'inside_summary') {
+                $resolved_header = 'wc_native';
+            } else {
+                $resolved_header = 'hero';
+            }
+        }
+
+        return [
+            'style_mode' => $style,
+            'header_style' => $resolved_header,
+            'raw_header_style' => $header,
+            'items_layout' => $layout,
+            'grid_columns' => $cols,
+            'summary_position' => $summary,
+            'display_position' => $display_pos,
+            'is_block_theme' => $is_block_theme,
+        ];
     }
 
     public function add_settings_page()
@@ -61,6 +204,7 @@ class WCB_Theme_Settings
 <div class="wrap">
     <h1>
         <?php esc_html_e('WooC Bundle gIA70 - Pannello di Controllo', 'wcb-framework'); ?>
+        <span style="font-size: 13px; background: #2271b1; color: #fff; padding: 3px 10px; border-radius: 12px; vertical-align: middle; margin-left: 10px;">v2.8.0 (<?php echo esc_html(dirname(plugin_basename(__FILE__))); ?>)</span>
     </h1>
 
     <h2 class="nav-tab-wrapper">
@@ -72,42 +216,155 @@ class WCB_Theme_Settings
             class="nav-tab <?php echo $active_tab == 'guide' ? 'nav-tab-active' : ''; ?>">Manuale Operativo</a>
     </h2>
 
-    <?php if ($active_tab == 'settings'): ?>
+    <?php if ($active_tab == 'settings'):
+        $current_style = self::get_global_style_mode();
+        $current_header = get_option('wcb_header_style', 'auto');
+        $current_layout = get_option('wcb_items_layout', 'list');
+        $current_cols = absint(get_option('wcb_grid_columns', 3));
+        if ($current_cols < 2 || $current_cols > 4) {
+            $current_cols = 3;
+        }
+        $current_summary = get_option('wcb_summary_position', 'sidebar');
+        $current_display_pos = get_option('wcb_bundle_display_position', 'after_summary');
+    ?>
     <form method="post" action="options.php">
         <?php settings_fields('wcb_theme_settings'); ?>
         <table class="form-table">
             <tr>
-                <th scope="row"><strong>Tema Grafico</strong></th>
-                <td></td>
+                <th scope="row"><strong><?php esc_html_e('Stile Grafico e Tema', 'wcb-framework'); ?></strong></th>
+                <td>
+                    <p class="description"><?php esc_html_e('Impostazioni predefinite globali. Ogni singolo Bundle può sovrascriverle nella propria scheda prodotto.', 'wcb-framework'); ?></p>
+                </td>
             </tr>
             <tr>
-                <th scope="row"><label for="wcb_enable_modern_theme">
-                        <?php esc_html_e('Tema Moderno', 'wcb-framework'); ?>
+                <th scope="row"><label for="wcb_style_mode">
+                        <?php esc_html_e('Stile Grafico Frontend', 'wcb-framework'); ?>
                     </label></th>
                 <td>
-                    <label><input type="checkbox" id="wcb_enable_modern_theme" name="wcb_enable_modern_theme" value="1"
-                            <?php checked(get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)); ?>>
-                        <?php esc_html_e('Abilita il tema moderno (Card, Ombreggiature, Animazioni)', 'wcb-framework'); ?>
-                    </label>
+                    <select id="wcb_style_mode" name="wcb_style_mode">
+                        <option value="classic" <?php selected($current_style, 'classic'); ?>>
+                            <?php esc_html_e('Classico del Plugin (Pulito e neutro)', 'wcb-framework'); ?>
+                        </option>
+                        <option value="modern" <?php selected($current_style, 'modern'); ?>>
+                            <?php esc_html_e('Moderno del Plugin (Card, Ombreggiature, Animazioni, Step)', 'wcb-framework'); ?>
+                        </option>
+                        <option value="theme_native" <?php selected($current_style, 'theme_native'); ?>>
+                            <?php esc_html_e('Grafica Preimpostata di WooCommerce e del Tema del Sito', 'wcb-framework'); ?>
+                        </option>
+                    </select>
+                    <p class="description">
+                        <?php esc_html_e('Scegliendo "Grafica Preimpostata di WooCommerce e del Tema", il bundle erediterà colori, font, pulsanti e stili form dal tema attivo (inclusi i Temi a Blocchi FSE).', 'wcb-framework'); ?>
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row"><label for="wcb_header_style">
+                        <?php esc_html_e('Intestazione Pagina Prodotto Bundle', 'wcb-framework'); ?>
+                    </label></th>
+                <td>
+                    <select id="wcb_header_style" name="wcb_header_style">
+                        <option value="auto" <?php selected($current_header, 'auto'); ?>>
+                            <?php esc_html_e('Automatico (Hero; Standard con Stile Tema o posizione "Dentro il riepilogo")', 'wcb-framework'); ?>
+                        </option>
+                        <option value="hero" <?php selected($current_header, 'hero'); ?>>
+                            <?php esc_html_e('Hero Banner a tutta larghezza', 'wcb-framework'); ?>
+                        </option>
+                        <option value="wc_native" <?php selected($current_header, 'wc_native'); ?>>
+                            <?php esc_html_e('Standard di WooCommerce e del Tema (Galleria e Titolo nativi)', 'wcb-framework'); ?>
+                        </option>
+                    </select>
+                    <p class="description">
+                        <?php esc_html_e('Controlla se sostituire la testata prodotto standard con il banner Hero oppure mantenere il layout nativo del tema.', 'wcb-framework'); ?>
+                    </p>
+                </td>
+            </tr>
+
+            <tr>
+                <th scope="row">
+                    <hr><strong><?php esc_html_e('Layout Prodotti e Riepilogo', 'wcb-framework'); ?></strong>
+                </th>
+                <td>
+                    <hr>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row"><label for="wcb_items_layout">
+                        <?php esc_html_e('Vista Articoli del Bundle', 'wcb-framework'); ?>
+                    </label></th>
+                <td>
+                    <select id="wcb_items_layout" name="wcb_items_layout">
+                        <option value="list" <?php selected($current_layout, 'list'); ?>>
+                            <?php esc_html_e('Lista (1 colonna - layout orizzontale)', 'wcb-framework'); ?>
+                        </option>
+                        <option value="grid" <?php selected($current_layout, 'grid'); ?>>
+                            <?php esc_html_e('Griglia (Multi-colonna - card verticali)', 'wcb-framework'); ?>
+                        </option>
+                    </select>
+                    <p class="description">
+                        <?php esc_html_e('Scegli come disporre i prodotti all\'interno dei gruppi del bundle.', 'wcb-framework'); ?>
+                    </p>
+                </td>
+            </tr>
+            <tr id="wcb_grid_columns_row">
+                <th scope="row"><label for="wcb_grid_columns">
+                        <?php esc_html_e('Numero Colonne Griglia (Desktop)', 'wcb-framework'); ?>
+                    </label></th>
+                <td>
+                    <select id="wcb_grid_columns" name="wcb_grid_columns">
+                        <option value="2" <?php selected($current_cols, 2); ?>><?php esc_html_e('2 Colonne', 'wcb-framework'); ?></option>
+                        <option value="3" <?php selected($current_cols, 3); ?>><?php esc_html_e('3 Colonne', 'wcb-framework'); ?></option>
+                        <option value="4" <?php selected($current_cols, 4); ?>><?php esc_html_e('4 Colonne', 'wcb-framework'); ?></option>
+                    </select>
+                    <p class="description">
+                        <?php esc_html_e('Utilizzato quando la vista articoli è impostata su "Griglia". Si adatta automaticamente su tablet e smartphone.', 'wcb-framework'); ?>
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row"><label for="wcb_summary_position">
+                        <?php esc_html_e('Posizione Riepilogo e Acquisto', 'wcb-framework'); ?>
+                    </label></th>
+                <td>
+                    <select id="wcb_summary_position" name="wcb_summary_position">
+                        <option value="sidebar" <?php selected($current_summary, 'sidebar'); ?>>
+                            <?php esc_html_e('Di fianco a destra (Sticky su desktop, barra fissa su mobile)', 'wcb-framework'); ?>
+                        </option>
+                        <option value="bottom" <?php selected($current_summary, 'bottom'); ?>>
+                            <?php esc_html_e('A fondo pagina (Standard, sotto i gruppi di prodotti)', 'wcb-framework'); ?>
+                        </option>
+                        <option value="bottom_fixed" <?php selected($current_summary, 'bottom_fixed'); ?>>
+                            <?php esc_html_e('Fisso a fondo pagina (Barra sticky sempre visibile in basso)', 'wcb-framework'); ?>
+                        </option>
+                        <option value="top_fixed" <?php selected($current_summary, 'top_fixed'); ?>>
+                            <?php esc_html_e('Fisso a inizio pagina (Barra sticky sempre visibile in alto)', 'wcb-framework'); ?>
+                        </option>
+                    </select>
+                    <p class="description">
+                        <?php esc_html_e('Scegli dove mostrare il box del prezzo totale e il pulsante Aggiungi al Carrello.', 'wcb-framework'); ?>
+                    </p>
                 </td>
             </tr>
             <tr>
                 <th scope="row"><label for="wcb_bundle_display_position">
-                        <?php esc_html_e('Posizione Visualizzazione Bundle', 'wcb-framework'); ?>
+                        <?php esc_html_e('Posizione Modulo nella Pagina Prodotto', 'wcb-framework'); ?>
                     </label></th>
                 <td>
                     <select id="wcb_bundle_display_position" name="wcb_bundle_display_position">
-                        <option value="after_summary" <?php
-                            selected(get_option('wcb_bundle_display_position', 'after_summary' ), 'after_summary' ); ?>>
-                            <?php esc_html_e('Sotto l\'immagine (Dopo il riassunto)', 'wcb-framework'); ?>
+                        <option value="after_summary" <?php selected($current_display_pos, 'after_summary'); ?>>
+                            <?php esc_html_e('Sotto l\'immagine / Dopo il riepilogo (Consigliato)', 'wcb-framework'); ?>
                         </option>
-                        <option value="manual" <?php selected(get_option('wcb_bundle_display_position', 'after_summary'
-                            ), 'manual' ); ?>>
-                            <?php esc_html_e('Manuale (Shortcode)', 'wcb-framework'); ?>
+                        <option value="inside_summary" <?php selected($current_display_pos, 'inside_summary'); ?>>
+                            <?php esc_html_e('Dentro il riepilogo / Blocco Aggiungi al Carrello (Nativo WC & Temi a Blocchi FSE)', 'wcb-framework'); ?>
+                        </option>
+                        <option value="after_tabs" <?php selected($current_display_pos, 'after_tabs'); ?>>
+                            <?php esc_html_e('A fondo pagina (Dopo le tab descrizione/recensioni)', 'wcb-framework'); ?>
+                        </option>
+                        <option value="manual" <?php selected($current_display_pos, 'manual'); ?>>
+                            <?php esc_html_e('Manuale (Solo tramite Shortcode)', 'wcb-framework'); ?>
                         </option>
                     </select>
                     <p class="description">
-                        <?php esc_html_e('Scegli dove mostrare il modulo del bundle nella pagina prodotto single.', 'wcb-framework'); ?><br>
+                        <?php esc_html_e('Scegli dove mostrare il modulo del bundle nella pagina prodotto single. Nei Temi a Blocchi (FSE) viene supportato automaticamente anche il blocco nativo "Aggiungi al carrello con opzioni".', 'wcb-framework'); ?><br>
                         <?php esc_html_e('Shortcode: [wcb_bundle_form]', 'wcb-framework'); ?>
                     </p>
                 </td>
@@ -138,6 +395,19 @@ class WCB_Theme_Settings
         </table>
         <?php submit_button(); ?>
     </form>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var layoutSelect = document.getElementById('wcb_items_layout');
+            var colsRow = document.getElementById('wcb_grid_columns_row');
+            if (layoutSelect && colsRow) {
+                var toggleCols = function () {
+                    colsRow.style.opacity = layoutSelect.value === 'grid' ? '1' : '0.55';
+                };
+                layoutSelect.addEventListener('change', toggleCols);
+                toggleCols();
+            }
+        });
+    </script>
     <?php
         elseif ($active_tab == 'bundles'): ?>
     <?php $this->render_bundles_tab(); ?>
@@ -224,6 +494,7 @@ class WCB_Theme_Settings
     <ul>
         <li><strong>Q.tà Fissa (Default Qty):</strong> Nel backend, puoi dire che selezionando la "Polo", ne vengono
             aggiunte automaticamente 2 al carrello. Apparirà un badge <code>2x</code> nel frontend.</li>
+        <li><strong>Unità in Eccesso / Prezzo a Soglia (Extra €/cad):</strong> Accanto a ogni prodotto nel gruppo puoi impostare un costo unitario per le unità in eccesso (es. <code>4</code> €) e un'etichetta personalizzata (es. <em>"Dispositivi oltre il 15°"</em>). Quando il cliente spunta il prodotto, può lasciare <code>+ 0</code> (pagando solo il prezzo base a forfait fino alla soglia) oppure indicare <code>+ N</code> apparecchi in eccesso (aggiungendo automaticamente <code>N × Extra €</code> alla riga del prodotto).</li>
         <li><strong>Etichetta Sotto Prezzo:</strong> Nel tab "Generale", puoi scrivere un testo personalizzato (es.
             "Sconto 20% al checkout") che apparirà sotto il prezzo totale.</li>
         <li><strong>Personalizzazione:</strong> Puoi aggiungere campi testo (es. "Nome sulla maglia") per ogni gruppo.
@@ -481,6 +752,12 @@ add_action('plugins_loaded', 'wcb_initialize_updater');
 final class WC_Custom_Bundle_Framework
 {
     private static $instance;
+    private $rendered_bundles = [];
+    private $enqueued_bundles = [];
+    private $fse_columns_depth = 0;
+    // Marker FSE emessi in questa richiesta: un marker scritto da altri (es. nel contenuto) viene ignorato
+    private $fse_markers = [];
+
     public static function get_instance()
     {
         if (null === self::$instance) {
@@ -494,12 +771,84 @@ final class WC_Custom_Bundle_Framework
         add_action('plugins_loaded', [$this, 'init']);
     }
 
+    /**
+     * URL di un asset con la versione nel percorso (es. uploads/wcb-assets/admin.1a2b3c4d5e.js).
+     * Alcuni CDN (es. Cloudflare con "Ignore query string") ignorano ?ver= e continuano a servire
+     * il file vecchio dopo un aggiornamento: copiando l'asset in uploads con un nome versionato,
+     * ogni nuova versione ha un URL diverso. Se la copia non riesce si usa l'URL del plugin con ?ver=.
+     */
+    private function asset_url($file)
+    {
+        static $cache = [];
+        if (isset($cache[$file])) {
+            return $cache[$file];
+        }
+
+        $source = plugin_dir_path(__FILE__) . 'assets/' . $file;
+        $hash = substr((string) @md5_file($source), 0, 10); // dal contenuto: nome file = versione esatta
+        $fallback = add_query_arg('ver', $hash, plugin_dir_url(__FILE__) . 'assets/' . $file);
+
+        $uploads = wp_upload_dir(null, false);
+        // Uploads su un altro host (offload S3/CDN): la copia locale non sarebbe raggiungibile
+        $same_host = wp_parse_url($uploads['baseurl'] ?? '', PHP_URL_HOST) === wp_parse_url(plugin_dir_url(__FILE__), PHP_URL_HOST);
+        if (!empty($uploads['error']) || !is_readable($source) || !$same_host || !apply_filters('wcb_versioned_asset_urls', true)) {
+            return $cache[$file] = $fallback;
+        }
+
+        $info = pathinfo($file);
+        $versioned = $info['filename'] . '.' . $hash . '.' . $info['extension'];
+        $dir = trailingslashit($uploads['basedir']) . 'wcb-assets/';
+        $target = $dir . $versioned;
+
+        if (!file_exists($target)) {
+            if (!wp_mkdir_p($dir)) {
+                return $cache[$file] = $fallback;
+            }
+            // Copia su file temporaneo + rename: una richiesta concorrente non vede mai un file a metà
+            $tmp = $target . '.' . uniqid('', true) . '.tmp';
+            if (!@copy($source, $tmp) || !@rename($tmp, $target)) {
+                @unlink($tmp);
+                if (!file_exists($target)) {
+                    return $cache[$file] = $fallback;
+                }
+            }
+            // Rimuove le copie delle versioni vecchie, tenendo l'ultima precedente:
+            // le pagine ancora in cache (Cloudflare, plugin di cache) possono riferirla
+            $old_copies = array_diff((array) glob($dir . $info['filename'] . '.*.' . $info['extension']), [$target]);
+            usort($old_copies, function ($a, $b) {
+                return @filemtime($b) <=> @filemtime($a);
+            });
+            foreach (array_slice($old_copies, 1) as $old) {
+                @unlink($old);
+            }
+        }
+
+        return $cache[$file] = set_url_scheme(trailingslashit($uploads['baseurl']) . 'wcb-assets/' . $versioned);
+    }
+
+    // Importo come testo semplice (carrello, meta d'ordine, email): senza tag né entità tipo &nbsp;&euro;
+    private static function format_extra_amount($amount)
+    {
+        return html_entity_decode(wp_strip_all_tags(wc_price($amount)), ENT_QUOTES, 'UTF-8');
+    }
+
+    private function debug_log($message)
+    {
+        if (defined('WCB_DEBUG') && WCB_DEBUG) {
+            error_log($message);
+        }
+    }
+
     public function init()
     {
         if (!class_exists('WooCommerce'))
             return;
-        require_once plugin_dir_path(__FILE__) . 'includes/class-wc-product-custom-bundle.php';
+        $bundle_class_file = plugin_dir_path(__FILE__) . 'includes/class-wc-product-custom-bundle.php';
+        if (!file_exists($bundle_class_file))
+            return;
+        require_once $bundle_class_file;
 
+        add_action('init', [$this, 'register_block_patterns']);
         add_action('admin_body_class', [$this, 'add_admin_modern_class']);
         add_filter('body_class', [$this, 'add_frontend_modern_class']);
         add_filter('product_type_selector', [$this, 'add_bundle_product_type']);
@@ -511,17 +860,14 @@ final class WC_Custom_Bundle_Framework
         add_action('woocommerce_process_product_meta_custom_bundle', [$this, 'save_bundle_meta']);
         add_action('wp_ajax_wcb_custom_product_search', [$this, 'handle_custom_product_search']);
 
-        // GESTIONE VISUALIZZAZIONE CONDIZIONALE
-        $display_pos = get_option('wcb_bundle_display_position', 'after_summary');
-        if ($display_pos === 'after_summary') {
-            // Revert: Use classic hook (priority 5) to ensure correct position relative to reviews/tabs in most themes.
-            add_action('woocommerce_after_single_product_summary', [$this, 'display_bundle_options_start'], 5);
-        }
-        elseif ($display_pos === 'after_tabs') {
-            // Bottom of page, after reviews/tabs
-            add_action('woocommerce_after_single_product', [$this, 'display_bundle_options_start'], 10);
-        }
-        // Se 'manual', non aggiungiamo hook.
+        // Supporto nativo per hook WooCommerce add-to-cart e Temi a Blocchi (FSE)
+        add_action('woocommerce_custom_bundle_add_to_cart', [$this, 'handle_wc_add_to_cart_action'], 10);
+        add_filter('render_block_data', [$this, 'track_fse_columns_start'], 10, 1);
+        add_filter('render_block', [$this, 'filter_fse_product_blocks'], 10, 2);
+
+        // Supporto Esportazione / Importazione CSV nativa di WooCommerce per _bundle_groups
+        add_filter('woocommerce_product_export_meta_value', [$this, 'export_bundle_meta_value'], 10, 4);
+        add_action('woocommerce_product_import_inserted_product_object', [$this, 'import_bundle_meta_value'], 10, 2);
 
         add_action('template_redirect', [$this, 'setup_bundle_layout']);
         add_shortcode('wcb_bundle_form', [$this, 'bundle_shortcode_callback']);
@@ -553,19 +899,340 @@ final class WC_Custom_Bundle_Framework
         add_filter('plugin_row_meta', [$this, 'add_plugin_meta_links'], 10, 2);
     }
 
-    // ... [METODI STANDARD INVARIATI: setup_bundle_layout, render_bundle_hero, etc...] ...
+    public function register_block_patterns()
+    {
+        if (!function_exists('register_block_pattern')) {
+            return;
+        }
+        if (function_exists('register_block_pattern_category')) {
+            register_block_pattern_category('wcb-bundles', [
+                'label' => __('WooC Bundle gIA70', 'wcb-framework'),
+            ]);
+        }
+        register_block_pattern('wcb-framework/bundle-configurator', [
+            'title' => __('Configuratore Bundle Prodotto', 'wcb-framework'),
+            'description' => __('Inserisce il modulo di configurazione del Bundle (compatibile con Full Site Editing e Temi a Blocchi).', 'wcb-framework'),
+            'categories' => ['wcb-bundles', 'woocommerce'],
+            'content' => '<!-- wp:group {"align":"wide","layout":{"type":"constrained"}} --><div class="wp-block-group alignwide"><!-- wp:shortcode -->[wcb_bundle_form]<!-- /wp:shortcode --></div><!-- /wp:group -->',
+        ]);
+    }
+
     public function setup_bundle_layout()
     {
         if (is_product()) {
-            $product = wc_get_product(get_the_ID());
+            $product_id = get_the_ID();
+            $product = wc_get_product($product_id);
             if ($product && $product->get_type() === 'custom_bundle') {
-                remove_action('woocommerce_before_single_product_summary', 'woocommerce_show_product_images', 20);
-                remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_title', 5);
-                remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_price', 10);
-                remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_excerpt', 20);
-                remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_meta', 40);
-                add_action('woocommerce_before_single_product', [$this, 'render_bundle_hero'], 10);
+                $settings = WCB_Theme_Settings::get_bundle_layout_settings($product_id);
+
+                if ($settings['header_style'] === 'hero') {
+                    // Rimuove tutti gli hook da immagine e summary (inclusi widget di terze parti come PayPal Pay Later)
+                    // che altrimenti rimarrebbero orfani in uno spazio bianco tra l'Hero e il Bundle.
+                    remove_all_actions('woocommerce_before_single_product_summary');
+                    remove_all_actions('woocommerce_single_product_summary');
+                    // ...ma non i dati strutturati prodotto (JSON-LD per Google), che WooCommerce aggancia qui
+                    if (function_exists('WC') && isset(WC()->structured_data)) {
+                        add_action('woocommerce_single_product_summary', [WC()->structured_data, 'generate_product_data'], 60);
+                    }
+                    add_action('woocommerce_before_single_product', [$this, 'render_bundle_hero'], 10);
+                }
+
+                $display_pos = $settings['display_position'];
+                if ($display_pos === 'after_summary') {
+                    add_action('woocommerce_after_single_product_summary', [$this, 'display_bundle_options_start'], 5);
+                } elseif ($display_pos === 'inside_summary') {
+                    add_action('woocommerce_single_product_summary', [$this, 'display_bundle_options_start'], 30);
+                } elseif ($display_pos === 'after_tabs') {
+                    add_action('woocommerce_after_single_product', [$this, 'display_bundle_options_start'], 10);
+                }
             }
+        }
+    }
+
+    public function track_fse_columns_start($parsed_block)
+    {
+        if (!is_admin() && isset($parsed_block['blockName']) && $parsed_block['blockName'] === 'core/columns') {
+            $this->fse_columns_depth++;
+        }
+        return $parsed_block;
+    }
+
+    public function filter_fse_product_blocks($block_content, $block)
+    {
+        $block_name = $block['blockName'] ?? '';
+        if (!is_admin() && $block_name === 'core/columns' && $this->fse_columns_depth > 0) {
+            $this->fse_columns_depth--;
+        }
+
+        if (is_admin() || !is_product()) {
+            return $block_content;
+        }
+
+        // 1. Caso Hero su Tema a Blocchi (FSE): sostituisce il blocco a 2 colonne (galleria vuota + titolo/prezzo duplicati)
+        // con il configuratore a tutta larghezza (alignwide).
+        if ($block_name === 'core/columns' && preg_match('/<!--WCB_FSE_HERO_COLUMNS_MARKER:(\d+)-->/', $block_content, $matches)
+            && !empty($this->fse_markers['HERO_COLUMNS'][intval($matches[1])])) {
+            $product_id = intval($matches[1]);
+            $settings = WCB_Theme_Settings::get_bundle_layout_settings($product_id);
+            if (in_array($settings['display_position'], ['after_summary', 'inside_summary'], true)) {
+                return $this->get_bundle_options_wrapper_html($product_id);
+            }
+            return '';
+        }
+
+        // 2. Caso Header Nativo WC + Dopo il Riepilogo su Tema a Blocchi (FSE):
+        // mantiene il blocco a 2 colonne e aggiunge subito sotto il configuratore a tutta larghezza (alignwide).
+        if ($block_name === 'core/columns' && preg_match('/<!--WCB_FSE_AFTER_SUMMARY_MARKER:(\d+)-->/', $block_content, $matches)
+            && !empty($this->fse_markers['AFTER_SUMMARY'][intval($matches[1])])) {
+            $product_id = intval($matches[1]);
+            $clean_content = preg_replace('/<!--WCB_FSE_AFTER_SUMMARY_MARKER:\d+-->/', '', $block_content);
+            return $clean_content . $this->get_bundle_options_wrapper_html($product_id);
+        }
+
+        // 3. Caso Dopo le Tab (after_tabs) su Tema a Blocchi (FSE):
+        if ($block_name === 'woocommerce/product-details') {
+            $product_id = get_the_ID();
+            $product = $product_id ? wc_get_product($product_id) : null;
+            if ($product && $product->get_type() === 'custom_bundle' && empty($this->rendered_bundles[$product_id])) {
+                $settings = WCB_Theme_Settings::get_bundle_layout_settings($product_id);
+                if ($settings['display_position'] === 'after_tabs') {
+                    return $block_content . $this->get_bundle_options_wrapper_html($product_id);
+                }
+            }
+        }
+
+        return $block_content;
+    }
+
+    public function handle_wc_add_to_cart_action()
+    {
+        global $product;
+        if (!$product || !is_a($product, 'WC_Product') || $product->get_type() !== 'custom_bundle') {
+            return;
+        }
+        $product_id = $product->get_id();
+        if (!empty($this->rendered_bundles[$product_id])) {
+            return;
+        }
+
+        $settings = WCB_Theme_Settings::get_bundle_layout_settings($product_id);
+        $display_pos = $settings['display_position'];
+
+        // Se siamo in un Tema a Blocchi (FSE) che usa i blocchi singoli WooCommerce
+        // (dove woocommerce_before_single_product_summary NON viene invocato):
+        if ($settings['is_block_theme'] && !did_action('woocommerce_before_single_product_summary')) {
+            if ($this->fse_columns_depth > 0 && $display_pos !== 'inside_summary') {
+                if ($settings['header_style'] === 'hero') {
+                    $this->fse_markers['HERO_COLUMNS'][$product_id] = true;
+                    echo '<!--WCB_FSE_HERO_COLUMNS_MARKER:' . intval($product_id) . '-->';
+                    return;
+                }
+                if ($display_pos === 'after_summary') {
+                    $this->fse_markers['AFTER_SUMMARY'][$product_id] = true;
+                    echo '<!--WCB_FSE_AFTER_SUMMARY_MARKER:' . intval($product_id) . '-->';
+                    echo '<div class="wcb-fse-configure-cta" style="margin: 15px 0;"><a href="#wcb-bundle-configurator-' . esc_attr($product_id) . '" class="button alt wp-element-button">' . esc_html__('Configura il tuo Bundle ↓', 'wcb-framework') . '</a></div>';
+                    return;
+                }
+                if ($display_pos === 'after_tabs') {
+                    echo '<!--WCB_FSE_AFTER_TABS_MARKER:' . intval($product_id) . '-->';
+                    echo '<div class="wcb-fse-configure-cta" style="margin: 15px 0;"><a href="#wcb-bundle-configurator-' . esc_attr($product_id) . '" class="button alt wp-element-button">' . esc_html__('Configura il tuo Bundle ↓', 'wcb-framework') . '</a></div>';
+                    return;
+                }
+                if ($display_pos === 'manual') {
+                    return;
+                }
+            }
+            if ($display_pos !== 'manual') {
+                $this->display_bundle_options_start();
+            }
+            return;
+        }
+
+        if ($display_pos === 'inside_summary') {
+            $this->display_bundle_options_start();
+        }
+    }
+
+    /**
+     * Normalizza e sanitizza i gruppi del bundle, da qualunque fonte arrivino:
+     * form admin, JSON incollato nell'import, CSV/REST di WooCommerce.
+     */
+    public static function sanitize_groups($groups)
+    {
+        if (!is_array($groups)) {
+            return [];
+        }
+        // Checkbox del form (valore "yes", assente se non spuntata) e valori "yes"/"no" del JSON
+        $flag = function ($value) {
+            return in_array($value, ['yes', 'on', '1', 1, true], true) ? 'yes' : 'no';
+        };
+        $modes = ['single', 'multiple', 'quantity', 'multiple_quantity'];
+
+        $clean = [];
+        foreach ($groups as $group) {
+            if (!is_array($group)) {
+                continue;
+            }
+            $personalization_fields = [];
+            foreach ((array) ($group['personalization_fields'] ?? []) as $field) {
+                if (is_array($field)) {
+                    $personalization_fields[] = ['label' => sanitize_text_field($field['label'] ?? ''), 'required' => $flag($field['required'] ?? 'no'), 'type' => 'text'];
+                }
+            }
+            $products_settings = [];
+            foreach ((array) ($group['products_settings'] ?? []) as $pid => $settings) {
+                if (!is_array($settings) || !absint($pid)) {
+                    continue;
+                }
+                $products_settings[absint($pid)] = [
+                    'min_qty' => absint($settings['min_qty'] ?? 1),
+                    'step' => absint($settings['step'] ?? 1),
+                    'default_qty' => absint($settings['default_qty'] ?? 1),
+                    'price' => wc_format_decimal($settings['price'] ?? ''),
+                    'extra_unit_price' => wc_format_decimal($settings['extra_unit_price'] ?? ''),
+                    'extra_unit_label' => sanitize_text_field($settings['extra_unit_label'] ?? ''),
+                ];
+            }
+            $selection_mode = $group['selection_mode'] ?? 'multiple';
+            $clean_group = [
+                'title' => sanitize_text_field($group['title'] ?? ''),
+                'products' => array_values(array_filter(array_map('absint', (array) ($group['products'] ?? [])))),
+                'selection_mode' => in_array($selection_mode, $modes, true) ? $selection_mode : 'multiple',
+                'min_qty' => absint($group['min_qty'] ?? 1),
+                'max_qty' => absint($group['max_qty'] ?? 0),
+                'total_qty' => absint($group['total_qty'] ?? 1),
+                'is_required' => $flag($group['is_required'] ?? 'no'),
+                'personalization_enabled' => $flag($group['personalization_enabled'] ?? 'no'),
+                'personalization_fields' => $personalization_fields,
+                'products_settings' => $products_settings,
+                'price_override' => wc_format_decimal($group['price_override'] ?? ''),
+                'show_price_behavior' => sanitize_text_field($group['show_price_behavior'] ?? 'default'),
+            ];
+            // Mappa SKU/slug dell'export: serve a get_bundle_groups() per ritrovare i prodotti su un altro sito
+            if (!empty($group['products_export_map']) && is_array($group['products_export_map'])) {
+                $export_map = [];
+                foreach ($group['products_export_map'] as $pid => $info) {
+                    if (is_array($info) && absint($pid)) {
+                        $export_map[absint($pid)] = [
+                            'sku' => sanitize_text_field($info['sku'] ?? ''),
+                            'slug' => sanitize_title($info['slug'] ?? ''),
+                            'name' => sanitize_text_field($info['name'] ?? ''),
+                        ];
+                    }
+                }
+                $clean_group['products_export_map'] = $export_map;
+            }
+            $clean[] = $clean_group;
+        }
+        return $clean;
+    }
+
+    public static function get_bundle_groups($product_id)
+    {
+        $raw = get_post_meta($product_id, '_bundle_groups', true);
+        if (empty($raw)) {
+            return [];
+        }
+        if (is_string($raw)) {
+            // Niente oggetti: il valore può arrivare da CSV/REST di terzi (PHP Object Injection)
+            $unserialized = is_serialized($raw) ? @unserialize($raw, ['allowed_classes' => false]) : false;
+            if (is_array($unserialized)) {
+                $raw = $unserialized;
+            } else {
+                $decoded = json_decode($raw, true);
+                if (is_array($decoded)) {
+                    $raw = $decoded;
+                } else {
+                    $decoded_slashed = json_decode( wp_unslash($raw), true );
+                    if (is_array($decoded_slashed)) {
+                        $raw = $decoded_slashed;
+                    }
+                }
+            }
+            if (is_array($raw)) {
+                $raw = self::sanitize_groups($raw);
+                update_post_meta($product_id, '_bundle_groups', wp_slash($raw));
+            }
+        }
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        // Risolve eventuali ID prodotti su siti di staging tramite SKU o slug se salvati nell'esportazione
+        $needs_resave = false;
+        foreach ($raw as $g_idx => &$group) {
+            if (!empty($group['products']) && is_array($group['products'])) {
+                $resolved_products = [];
+                $new_settings = $group['products_settings'] ?? [];
+                foreach ($group['products'] as $idx => $p_id) {
+                    $p_id = intval($p_id);
+                    $prod_obj = $p_id > 0 ? wc_get_product($p_id) : false;
+                    // Se l'ID non esiste o appartiene a un altro prodotto su staging, prova tramite metadati esportati (SKU / slug)
+                    if (!$prod_obj && !empty($group['products_export_map'][$p_id])) {
+                        $map = $group['products_export_map'][$p_id];
+                        $found_id = 0;
+                        if (!empty($map['sku'])) {
+                            $found_id = wc_get_product_id_by_sku($map['sku']);
+                        }
+                        if (!$found_id && !empty($map['slug'])) {
+                            $post_obj = get_page_by_path($map['slug'], OBJECT, 'product');
+                            if ($post_obj) {
+                                $found_id = $post_obj->ID;
+                            }
+                        }
+                        if ($found_id > 0) {
+                            $resolved_products[] = $found_id;
+                            if (isset($new_settings[$p_id]) && !isset($new_settings[$found_id])) {
+                                $new_settings[$found_id] = $new_settings[$p_id];
+                            }
+                            $needs_resave = true;
+                            continue;
+                        }
+                    }
+                    $resolved_products[] = $p_id;
+                }
+                $group['products'] = $resolved_products;
+                $group['products_settings'] = $new_settings;
+            }
+        }
+        unset($group);
+
+        if ($needs_resave) {
+            update_post_meta($product_id, '_bundle_groups', $raw);
+        }
+
+        return $raw;
+    }
+
+    public function export_bundle_meta_value($meta_value, $meta, $product, $row)
+    {
+        if (isset($meta->key) && $meta->key === '_bundle_groups' && is_array($meta_value)) {
+            foreach ($meta_value as &$group) {
+                if (!empty($group['products']) && is_array($group['products'])) {
+                    $export_map = [];
+                    foreach ($group['products'] as $pid) {
+                        $child = wc_get_product($pid);
+                        if ($child) {
+                            $export_map[$pid] = [
+                                'sku' => $child->get_sku(),
+                                'slug' => $child->get_slug(),
+                                'name' => $child->get_name(),
+                            ];
+                        }
+                    }
+                    $group['products_export_map'] = $export_map;
+                }
+            }
+            unset($group);
+            return wp_json_encode($meta_value);
+        }
+        return $meta_value;
+    }
+
+    public function import_bundle_meta_value($product, $data)
+    {
+        if ($product && is_a($product, 'WC_Product')) {
+            self::get_bundle_groups($product->get_id());
         }
     }
 
@@ -575,8 +1242,24 @@ final class WC_Custom_Bundle_Framework
         $image_url = wp_get_attachment_image_url($product->get_image_id(), 'full');
         $title = $product->get_name();
         $short_desc = $product->get_short_description();
+        $bg_rule = $image_url ? 'background-image: url(' . esc_url($image_url) . ');' : '';
 ?>
-<div class="wcb-hero-section" style="background-image: url('<?php echo esc_url($image_url); ?>');">
+<style id="wcb-hero-critical-css">
+    .wcb-hero-section,
+    .is-layout-constrained > .wcb-hero-section,
+    .wp-site-blocks .wcb-hero-section {
+        position: relative !important;
+        left: 0 !important;
+        right: auto !important;
+        transform: none !important;
+        width: var(--wcb-client-vw, 100vw) !important;
+        max-width: var(--wcb-client-vw, 100vw) !important;
+        margin-left: var(--wcb-hero-ml, calc(50% - var(--wcb-client-vw, 100vw) / 2)) !important;
+        margin-right: calc(100% - var(--wcb-client-vw, 100vw) - var(--wcb-hero-ml, calc(50% - var(--wcb-client-vw, 100vw) / 2))) !important;
+        box-sizing: border-box !important;
+    }
+</style>
+<div class="wcb-hero-section alignfull" style="<?php echo $bg_rule; ?> position: relative !important; left: 0 !important; right: auto !important; transform: none !important; width: var(--wcb-client-vw, 100vw) !important; max-width: var(--wcb-client-vw, 100vw) !important; margin-left: var(--wcb-hero-ml, calc(50% - var(--wcb-client-vw, 100vw) / 2)) !important; margin-right: calc(100% - var(--wcb-client-vw, 100vw) - var(--wcb-hero-ml, calc(50% - var(--wcb-client-vw, 100vw) / 2))) !important; box-sizing: border-box !important;">
     <div class="wcb-hero-overlay"></div>
     <div class="wcb-hero-content">
         <h1 class="wcb-hero-title">
@@ -590,6 +1273,24 @@ final class WC_Custom_Bundle_Framework
         endif; ?>
     </div>
 </div>
+<script>
+(function(){
+    var alignHero = function() {
+        var vw = document.documentElement.clientWidth;
+        if (!vw) return;
+        document.documentElement.style.setProperty('--wcb-client-vw', vw + 'px');
+        var hero = document.querySelector('.wcb-hero-section');
+        if (hero) {
+            hero.style.setProperty('--wcb-hero-ml', '0px');
+            var rect = hero.getBoundingClientRect();
+            hero.style.setProperty('--wcb-hero-ml', (-rect.left) + 'px');
+        }
+    };
+    alignHero();
+    window.addEventListener('resize', alignHero);
+    window.addEventListener('load', alignHero);
+})();
+</script>
 <?php
     }
 
@@ -629,7 +1330,11 @@ final class WC_Custom_Bundle_Framework
                 $cart_item['wcb_is_group_middle'] = $d['is_group_middle'];
             if (isset($d['item_personalization']))
                 $cart_item['wcb_item_personalization'] = $d['item_personalization'];
-            error_log('WCB DEBUG - Session restored bundle_part_of: ' . ($d['bundle_part_of'] ?? 'N/A'));
+            if (isset($d['extra_units']))
+                $cart_item['wcb_extra_units'] = absint($d['extra_units']);
+            if (isset($d['extra_units_info']))
+                $cart_item['wcb_extra_units_info'] = $d['extra_units_info'];
+            $this->debug_log('WCB DEBUG - Session restored bundle_part_of: ' . ($d['bundle_part_of'] ?? 'N/A'));
         }
         // Legacy format: individual keys (keep for old cart items)
         elseif (isset($values['wcb_bundle_part_of'])) {
@@ -652,10 +1357,14 @@ final class WC_Custom_Bundle_Framework
                 $cart_item['wcb_is_group_middle'] = $values['wcb_is_group_middle'];
             if (isset($values['wcb_item_personalization']))
                 $cart_item['wcb_item_personalization'] = $values['wcb_item_personalization'];
-            error_log('WCB DEBUG - Session restored LEGACY bundle_part_of: ' . $values['wcb_bundle_part_of']);
+            if (isset($values['wcb_extra_units']))
+                $cart_item['wcb_extra_units'] = absint($values['wcb_extra_units']);
+            if (isset($values['wcb_extra_units_info']))
+                $cart_item['wcb_extra_units_info'] = $values['wcb_extra_units_info'];
+            $this->debug_log('WCB DEBUG - Session restored LEGACY bundle_part_of: ' . $values['wcb_bundle_part_of']);
         }
         else {
-            error_log('WCB DEBUG - Session has NO wcb data. Keys: ' . implode(', ', array_keys($values)));
+            $this->debug_log('WCB DEBUG - Session has NO wcb data. Keys: ' . implode(', ', array_keys($values)));
         }
 
         return $cart_item;
@@ -703,7 +1412,7 @@ final class WC_Custom_Bundle_Framework
             $total = count($bundle_keys);
             $pos = array_search($cart_item_key, $bundle_keys);
 
-            error_log("WCB CLASS - key=$cart_item_key bundle=$bundle_id total=$total pos=$pos");
+            $this->debug_log("WCB CLASS - key=$cart_item_key bundle=$bundle_id total=$total pos=$pos");
 
             if ($total === 1) {
                 $class .= ' wcb-group-single';
@@ -843,9 +1552,7 @@ final class WC_Custom_Bundle_Framework
         }
 
         $update_bundle_id = isset($form_data['wcb_update_bundle_id']) ? wc_clean($form_data['wcb_update_bundle_id']) : '';
-        $bundle_groups = $product->get_meta('_bundle_groups', true);
-        if (!is_array($bundle_groups))
-            $bundle_groups = [];
+        $bundle_groups = self::get_bundle_groups($product_id);
         $errors = [];
         $final_selections = [];
 
@@ -854,6 +1561,24 @@ final class WC_Custom_Bundle_Framework
         $posted_quantities = $form_data['wcb_quantity'] ?? [];
         $posted_variation_sets_all = $form_data['wcb_variation_sets'] ?? [];
         $posted_personalizations = $form_data['wcb_personalization'] ?? [];
+        $posted_extra_units = $form_data['wcb_extra_units'] ?? [];
+
+        $get_extra_units_data = function ($group_index, $pid) use ($bundle_groups, $posted_extra_units) {
+            $group_config = $bundle_groups[$group_index] ?? [];
+            $p_settings = $group_config['products_settings'][$pid] ?? [];
+            $extra_price = isset($p_settings['extra_unit_price']) && $p_settings['extra_unit_price'] !== '' ? floatval($p_settings['extra_unit_price']) : 0;
+            if ($extra_price <= 0) {
+                return ['units' => 0, 'unit_price' => 0, 'label' => ''];
+            }
+            $raw_units = isset($posted_extra_units[$group_index][$pid]) ? absint($posted_extra_units[$group_index][$pid]) : 0;
+            $units = min(1000, $raw_units);
+            $label = !empty($p_settings['extra_unit_label']) ? sanitize_text_field($p_settings['extra_unit_label']) : __('Unità in eccesso', 'wcb-framework');
+            return [
+                'units' => $units,
+                'unit_price' => $extra_price,
+                'label' => $label,
+            ];
+        };
 
         $get_personalization_data = function ($group_index, $pid, $set_index, $product_name) use ($bundle_groups, $posted_personalizations, &$errors) {
             $group_config = $bundle_groups[$group_index];
@@ -917,7 +1642,13 @@ final class WC_Custom_Bundle_Framework
                         }
                         if ($item_id > 0) {
                             $pers_data = $get_personalization_data($group_index, $pid, 0, $child_product->get_name());
-                            $selection_instances[] = ['item_id' => $item_id, 'personalization_data' => $pers_data];
+                            $extra_data = $get_extra_units_data($group_index, $pid);
+                            $selection_instances[] = [
+                                'item_id' => $item_id,
+                                'personalization_data' => $pers_data,
+                                'extra_units' => $extra_data['units'],
+                                'extra_units_info' => $extra_data['units'] > 0 ? $extra_data : null,
+                            ];
                         }
                     }
                 }
@@ -940,7 +1671,13 @@ final class WC_Custom_Bundle_Framework
                             }
                             if ($item_id > 0) {
                                 $pers_data = $get_personalization_data($group_index, $pid, 0, $child_product->get_name());
-                                $selection_instances[] = ['item_id' => $item_id, 'personalization_data' => $pers_data];
+                                $extra_data = $get_extra_units_data($group_index, $pid);
+                                $selection_instances[] = [
+                                    'item_id' => $item_id,
+                                    'personalization_data' => $pers_data,
+                                    'extra_units' => $extra_data['units'],
+                                    'extra_units_info' => $extra_data['units'] > 0 ? $extra_data : null,
+                                ];
                             }
                         }
                     }
@@ -950,7 +1687,7 @@ final class WC_Custom_Bundle_Framework
                 $quantities_in_group = $posted_quantities[$group_index] ?? [];
                 foreach ($quantities_in_group as $pid => $qty) {
                     $pid = absint($pid);
-                    $qty = absint($qty);
+                    $qty = min(absint($qty), 1000); // stesso tetto del max="1000" del form: evita cicli enormi
                     if ($qty > 0) {
                         if (!in_array($pid, $allowed_products, true)) {
                             $invalid_selection_error($group_config);
@@ -960,24 +1697,39 @@ final class WC_Custom_Bundle_Framework
                         if ($child_product) {
                             if (!$validate_product_qty($qty, $pid, $group_config, $child_product->get_name()))
                                 continue;
+                            $extra_data = $get_extra_units_data($group_index, $pid);
                             if ($child_product->is_type('variable')) {
                                 $variation_sets = $posted_variation_sets_all[$group_index][$pid] ?? [];
                                 if (count($variation_sets) !== $qty) {
                                     $errors[] = sprintf(__('Quantità errata per "%s".', 'wcb-framework'), $child_product->get_name());
                                     continue;
                                 }
+                                $added_extra = false;
                                 foreach ($variation_sets as $index => $attributes) {
                                     $var_id = $this->find_variation_id_from_attributes($pid, $attributes, $errors);
                                     if ($var_id > 0) {
                                         $pers_data = $get_personalization_data($group_index, $pid, $index, $child_product->get_name());
-                                        $selection_instances[] = ['item_id' => $var_id, 'personalization_data' => $pers_data];
+                                        $use_extra = !$added_extra ? $extra_data['units'] : 0;
+                                        $selection_instances[] = [
+                                            'item_id' => $var_id,
+                                            'personalization_data' => $pers_data,
+                                            'extra_units' => $use_extra,
+                                            'extra_units_info' => ($use_extra > 0) ? $extra_data : null,
+                                        ];
+                                        $added_extra = true;
                                     }
                                 }
                             }
                             else {
                                 for ($i = 0; $i < $qty; $i++) {
                                     $pers_data = $get_personalization_data($group_index, $pid, $i, $child_product->get_name());
-                                    $selection_instances[] = ['item_id' => $pid, 'personalization_data' => $pers_data];
+                                    $use_extra = ($i === 0) ? $extra_data['units'] : 0;
+                                    $selection_instances[] = [
+                                        'item_id' => $pid,
+                                        'personalization_data' => $pers_data,
+                                        'extra_units' => $use_extra,
+                                        'extra_units_info' => ($use_extra > 0) ? $extra_data : null,
+                                    ];
                                 }
                             }
                         }
@@ -1019,6 +1771,7 @@ final class WC_Custom_Bundle_Framework
 
                 foreach ($group_selections as $selection) {
                     $item_id = $selection['item_id'];
+                    $sel_extra_units = absint($selection['extra_units'] ?? 0);
                     $hash = $item_id . md5(json_encode($selection['personalization_data']));
                     $prod_obj = wc_get_product($item_id);
                     $parent_id_lookup = $prod_obj->is_type('variation') ? $prod_obj->get_parent_id() : $item_id;
@@ -1028,9 +1781,23 @@ final class WC_Custom_Bundle_Framework
                         $qty_multiplier = 1;
 
                     if (!isset($group_aggregated_items[$hash])) {
-                        $group_aggregated_items[$hash] = ['item_id' => $item_id, 'quantity' => 0, 'personalization_data' => $selection['personalization_data']];
+                        $group_aggregated_items[$hash] = [
+                            'item_id' => $item_id,
+                            'quantity' => 0,
+                            'personalization_data' => $selection['personalization_data'],
+                            'extra_units' => 0,
+                            'extra_units_info' => null,
+                        ];
                     }
                     $group_aggregated_items[$hash]['quantity'] += $qty_multiplier;
+                    if ($sel_extra_units > 0) {
+                        $group_aggregated_items[$hash]['extra_units'] += $sel_extra_units;
+                        if (!empty($selection['extra_units_info'])) {
+                            $info = $selection['extra_units_info'];
+                            $info['units'] = $group_aggregated_items[$hash]['extra_units'];
+                            $group_aggregated_items[$hash]['extra_units_info'] = $info;
+                        }
+                    }
                 }
 
                 foreach ($group_aggregated_items as $item_data) {
@@ -1076,10 +1843,18 @@ final class WC_Custom_Bundle_Framework
 
                 if (!empty($pers_data))
                     $wcb_meta['item_personalization'] = $pers_data;
+                if (!empty($item_data['extra_units'])) {
+                    $wcb_meta['extra_units'] = absint($item_data['extra_units']);
+                    // Quantità della riga per UN bundle: se nel carrello la riga passa da 1 a 2, gli extra raddoppiano
+                    $wcb_meta['extra_units_base_qty'] = max(1, absint($quantity));
+                    if (!empty($item_data['extra_units_info'])) {
+                        $wcb_meta['extra_units_info'] = $item_data['extra_units_info'];
+                    }
+                }
 
                 $cart_item_data = ['wcb_data' => $wcb_meta];
 
-                error_log('WCB DEBUG - Adding item ' . ($idx + 1) . '/' . $total_items . ' position: ' . ($wcb_meta['is_group_start'] ?? false ? 'START' : ($wcb_meta['is_group_end'] ?? false ? 'END' : ($wcb_meta['is_group_middle'] ?? false ? 'MIDDLE' : 'SINGLE'))));
+                $this->debug_log('WCB DEBUG - Adding item ' . ($idx + 1) . '/' . $total_items . ' position: ' . ($wcb_meta['is_group_start'] ?? false ? 'START' : ($wcb_meta['is_group_end'] ?? false ? 'END' : ($wcb_meta['is_group_middle'] ?? false ? 'MIDDLE' : 'SINGLE'))));
 
                 WC()->cart->add_to_cart($parent_id, $quantity, $variation_id, $attributes, $cart_item_data);
             }
@@ -1110,7 +1885,7 @@ final class WC_Custom_Bundle_Framework
                     }
                 }
             }
-            error_log('WCB DEBUG - attach_personalization: wcb_data present with keys: ' . implode(', ', array_keys($wcb)));
+            $this->debug_log('WCB DEBUG - attach_personalization: wcb_data present with keys: ' . implode(', ', array_keys($wcb)));
         }
         // Legacy format
         elseif (!isset($cart_item_data['wcb_item_personalization']) && isset($cart_item_data['wcb_bundle_configuration'])) {
@@ -1222,7 +1997,47 @@ final class WC_Custom_Bundle_Framework
             <?php esc_html_e('Trascina per riordinare', 'wcb-framework'); ?>)
         </span>
     </div>
+    <input type="hidden" name="wcb_bundle_panel_present" value="1">
     <div class="options_group" id="bundle_groups_container"></div>
+    <?php
+        $current_groups_export = self::get_bundle_groups($post->ID);
+        foreach ($current_groups_export as &$g_exp) {
+            if (!empty($g_exp['products']) && is_array($g_exp['products'])) {
+                $exp_map = [];
+                foreach ($g_exp['products'] as $exp_pid) {
+                    $exp_child = wc_get_product($exp_pid);
+                    if ($exp_child) {
+                        $exp_map[$exp_pid] = [
+                            'sku' => $exp_child->get_sku(),
+                            'slug' => $exp_child->get_slug(),
+                            'name' => $exp_child->get_name(),
+                        ];
+                    }
+                }
+                $g_exp['products_export_map'] = $exp_map;
+            }
+        }
+        unset($g_exp);
+        $json_export_str = !empty($current_groups_export) ? wp_json_encode($current_groups_export) : '';
+    ?>
+    <div class="options_group" style="padding: 15px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0;">
+        <details>
+            <summary style="cursor: pointer; font-weight: 600; color: #2271b1;">
+                🔄 <?php esc_html_e('Migrazione Rapida Gruppi Bundle (Esporta / Importa JSON tra Produzione e Staging)', 'wcb-framework'); ?>
+            </summary>
+            <div style="margin-top: 12px;">
+                <p class="description" style="margin-bottom: 8px;">
+                    <?php esc_html_e('Nota: Lo strumento nativo "Prodotti → Esporta CSV" di WooCommerce nelle versioni < 2.7.3 ignora i campi array come i gruppi del bundle. Puoi incollare qui sotto il JSON dei gruppi o usare "Strumenti → Esporta → Prodotti (XML)" di WordPress.', 'wcb-framework'); ?>
+                </p>
+                <?php if (!empty($json_export_str)): ?>
+                <p><strong><?php esc_html_e('JSON Gruppi Attuali (copia questo codice per portarlo su un altro sito):', 'wcb-framework'); ?></strong></p>
+                <textarea readonly onclick="this.select();" style="width: 100%; height: 70px; font-family: monospace; font-size: 12px; background: #fff;"><?php echo esc_textarea($json_export_str); ?></textarea>
+                <?php endif; ?>
+                <p style="margin-top: 10px;"><strong><?php esc_html_e('Importa JSON Gruppi (incolla qui e clicca "Aggiorna" sul prodotto):', 'wcb-framework'); ?></strong></p>
+                <textarea name="_wcb_import_groups_json" placeholder='[{"title":"Gruppo 1","products":[123,456],...}]' style="width: 100%; height: 70px; font-family: monospace; font-size: 12px;"></textarea>
+            </div>
+        </details>
+    </div>
     <div class="wcb-signature">
         <p><strong>WooC Bundle gIA70</strong> by <em>Gianfranco Greco</em></p>
     </div>
@@ -1234,12 +2049,10 @@ final class WC_Custom_Bundle_Framework
     {
         global $post;
         if ('post-new.php' == $hook || ('post.php' == $hook && isset($post->post_type) && 'product' == $post->post_type)) {
-            wp_enqueue_style('wcb-admin-style', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '2.6.2');
-            wp_enqueue_script('wcb-admin-script', plugin_dir_url(__FILE__) . 'assets/admin.js', ['jquery', 'wc-enhanced-select', 'jquery-ui-sortable'], '2.6.2', true);
+            wp_enqueue_style('wcb-admin-style', $this->asset_url('admin.css'), [], null);
+            wp_enqueue_script('wcb-admin-script', $this->asset_url('admin.js'), ['jquery', 'wc-enhanced-select', 'jquery-ui-sortable'], null, true);
 
-            $bundle_groups_data = get_post_meta($post->ID, '_bundle_groups', true);
-            if (!is_array($bundle_groups_data))
-                $bundle_groups_data = [];
+            $bundle_groups_data = self::get_bundle_groups($post->ID);
             $groups_for_js = [];
             foreach ($bundle_groups_data as $group) {
                 $products_with_names = [];
@@ -1258,9 +2071,103 @@ final class WC_Custom_Bundle_Framework
             }
             wp_localize_script('wcb-admin-script', 'wcb_bundle_data', ['groups' => $groups_for_js]);
             if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.css', ['wcb-admin-style'], '2.6.2');
-                wp_enqueue_script('wcb-admin-modern', plugin_dir_url(__FILE__) . 'assets/admin-modern.js', ['wcb-admin-script'], '2.6.2', true);
+                wp_enqueue_style('wcb-admin-modern', $this->asset_url('admin-modern.css'), ['wcb-admin-style'], null);
+                wp_enqueue_script('wcb-admin-modern', $this->asset_url('admin-modern.js'), ['wcb-admin-script'], null, true);
             }
+        }
+    }
+
+    public function enqueue_bundle_assets_for_product($product_id = 0)
+    {
+        $cache_key = $product_id ? (int) $product_id : 0;
+        if (!empty($this->enqueued_bundles[$cache_key])) {
+            return;
+        }
+        $this->enqueued_bundles[$cache_key] = true;
+
+        wp_enqueue_style('wcb-frontend-style', $this->asset_url('frontend.css'), [], null);
+        wp_enqueue_script('wcb-frontend-script', $this->asset_url('frontend.js'), ['jquery'], null, true);
+
+        if (!$product_id && is_product()) {
+            $product_id = get_the_ID();
+        }
+
+        if ($product_id) {
+            $product_obj = wc_get_product($product_id);
+            if ($product_obj) {
+                $pricing_data = [
+                    'type' => get_post_meta($product_id, '_bundle_pricing_type', true),
+                    'fixed_price' => wc_get_price_to_display($product_obj),
+                    'discount_amount' => floatval(get_post_meta($product_id, '_bundle_discount_amount', true)),
+                    'discount_percentage' => floatval(get_post_meta($product_id, '_bundle_discount_percentage', true)),
+                    'currency_symbol' => get_woocommerce_currency_symbol(),
+                    'decimal_separator' => wc_get_price_decimal_separator(),
+                    'thousand_separator' => wc_get_price_thousand_separator(),
+                    'currency_position' => get_option('woocommerce_currency_pos')
+                ];
+            } else {
+                $pricing_data = $this->get_default_pricing_data();
+            }
+        } else {
+            $pricing_data = $this->get_default_pricing_data();
+        }
+
+        $edit_config = null;
+        $edit_bundle_id = null;
+        $enriched_config = [];
+        if (isset($_GET['wcb_edit']) && !empty($_GET['wcb_edit']) && WC()->cart) {
+            $edit_bundle_id = sanitize_text_field($_GET['wcb_edit']);
+            $cart = WC()->cart->get_cart();
+            foreach ($cart as $key => $item) {
+                if (isset($item['wcb_bundle_part_of']) && $item['wcb_bundle_part_of'] === $edit_bundle_id) {
+                    if (isset($item['wcb_bundle_configuration'])) {
+                        $edit_config = $item['wcb_bundle_configuration'];
+                        break;
+                    }
+                }
+            }
+            if ($edit_config) {
+                foreach ($edit_config as $group_idx => $group_selections) {
+                    foreach ($group_selections as $selection) {
+                        $item_id = $selection['item_id'];
+                        $product = wc_get_product($item_id);
+                        $item_data = $selection;
+                        if ($product && $product->is_type('variation')) {
+                            $item_data['is_variation'] = true;
+                            $item_data['parent_id'] = $product->get_parent_id();
+                            $attributes = [];
+                            foreach ($product->get_attributes() as $name => $value) {
+                                $key = 'attribute_' . sanitize_title($name);
+                                $attributes[$key] = $value;
+                            }
+                            $item_data['attributes'] = $attributes;
+                        } else {
+                            $item_data['is_variation'] = false;
+                            $item_data['parent_id'] = $item_id;
+                        }
+                        $enriched_config[$group_idx][] = $item_data;
+                    }
+                }
+            }
+        }
+
+        $layout_settings = WCB_Theme_Settings::get_bundle_layout_settings($product_id);
+
+        wp_localize_script('wcb-frontend-script', 'wcb_params', [
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('wcb-add-to-cart-nonce'),
+            'pricing' => $pricing_data,
+            'layout' => $layout_settings,
+            'edit_mode' => ['active' => !empty($edit_config), 'bundle_id' => $edit_bundle_id, 'config' => $enriched_config],
+            'i18n' => [
+                'confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework'),
+                'update_bundle_btn' => __('Aggiorna Bundle', 'wcb-framework')
+            ]
+        ]);
+
+        if ($layout_settings['style_mode'] === 'modern') {
+            wp_enqueue_style('wcb-frontend-modern', $this->asset_url('frontend-modern.css'), ['wcb-frontend-style'], null);
+            wp_enqueue_script('wcb-frontend-modern', $this->asset_url('frontend-modern.js'), ['wcb-frontend-script'], null, true);
         }
     }
 
@@ -1276,114 +2183,24 @@ final class WC_Custom_Bundle_Framework
         }
         elseif (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'wcb_bundle_form')) {
             $should_enqueue = true;
-            // Try to extract ID from shortcode
             if (preg_match('/\[wcb_bundle_form\s+.*?id=[\'"]?(\d+)[\'"]?.*?\]/', $post->post_content, $matches)) {
                 $product_id = intval($matches[1]);
             }
         }
 
         if ($should_enqueue) {
-            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.6.2');
-            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.6.2', true);
-
-            if (!$product_id && is_product()) {
-                $product_id = get_the_ID();
-            }
-
-            // Fix for Fatal error: Uncaught Error: Call to a member function get_price() on false
-            // Check if product_id is valid and we can retrieve a product object
-            if ($product_id) {
-                $product_obj = wc_get_product($product_id);
-                if ($product_obj) {
-                    $pricing_data = [
-                        'type' => get_post_meta($product_id, '_bundle_pricing_type', true),
-                        'fixed_price' => wc_get_price_to_display($product_obj),
-                        'discount_amount' => floatval(get_post_meta($product_id, '_bundle_discount_amount', true)),
-                        'discount_percentage' => floatval(get_post_meta($product_id, '_bundle_discount_percentage', true)),
-                        'currency_symbol' => get_woocommerce_currency_symbol(),
-                        'decimal_separator' => wc_get_price_decimal_separator(),
-                        'thousand_separator' => wc_get_price_thousand_separator(),
-                        'currency_position' => get_option('woocommerce_currency_pos')
-                    ];
-                }
-
-                else {
-                    // Metadata exists but product failed to load? unlikely but safe fallbacks
-                    $pricing_data = $this->get_default_pricing_data();
-                }
-            }
-
-            else {
-                // No product context, safe fallback
-                $pricing_data = $this->get_default_pricing_data();
-            }
-
-            $edit_config = null;
-            $edit_bundle_id = null;
-            $enriched_config = [];
-            if (isset($_GET['wcb_edit']) && !empty($_GET['wcb_edit'])) {
-                $edit_bundle_id = sanitize_text_field($_GET['wcb_edit']);
-                $cart = WC()->cart->get_cart();
-                foreach ($cart as $key => $item) {
-                    if (isset($item['wcb_bundle_part_of']) && $item['wcb_bundle_part_of'] === $edit_bundle_id) {
-                        if (isset($item['wcb_bundle_configuration'])) {
-                            $edit_config = $item['wcb_bundle_configuration'];
-                            break;
-                        }
-                    }
-                }
-                if ($edit_config) {
-                    foreach ($edit_config as $group_idx => $group_selections) {
-                        foreach ($group_selections as $selection) {
-                            $item_id = $selection['item_id'];
-                            $product = wc_get_product($item_id);
-                            $item_data = $selection;
-                            if ($product && $product->is_type('variation')) {
-                                $item_data['is_variation'] = true;
-                                $item_data['parent_id'] = $product->get_parent_id();
-                                $attributes = [];
-                                foreach ($product->get_attributes() as $name => $value) {
-                                    $key = 'attribute_' . sanitize_title($name);
-                                    $attributes[$key] = $value;
-                                }
-                                $item_data['attributes'] = $attributes;
-                            }
-                            else {
-                                $item_data['is_variation'] = false;
-                                $item_data['parent_id'] = $item_id;
-                            }
-                            $enriched_config[$group_idx][] = $item_data;
-                        }
-                    }
-                }
-            }
-
-            wp_localize_script('wcb-frontend-script', 'wcb_params', [
-                'ajax_url' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('wcb-add-to-cart-nonce'),
-                'pricing' => $pricing_data,
-                'edit_mode' => ['active' => !empty($edit_config), 'bundle_id' => $edit_bundle_id, 'config' => $enriched_config],
-                'i18n' => [
-                    'confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework'),
-                    'update_bundle_btn' => __('Aggiorna Bundle', 'wcb-framework')
-                ]
-            ]);
-
-            if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.6.2');
-                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.6.2', true);
-            }
+            $this->enqueue_bundle_assets_for_product($product_id);
         }
 
         if (is_cart()) {
-            wp_enqueue_style('wcb-frontend-style', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], '2.6.2');
-            wp_enqueue_script('wcb-frontend-script', plugin_dir_url(__FILE__) . 'assets/frontend.js', ['jquery'], '2.6.2', true);
+            wp_enqueue_style('wcb-frontend-style', $this->asset_url('frontend.css'), [], null);
+            wp_enqueue_script('wcb-frontend-script', $this->asset_url('frontend.js'), ['jquery'], null, true);
             wp_localize_script('wcb-frontend-script', 'wcb_params', [
                 'i18n' => ['confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework')]
             ]);
-            if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-                wp_enqueue_style('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.css', ['wcb-frontend-style'], '2.6.2');
-                wp_enqueue_script('wcb-frontend-modern', plugin_dir_url(__FILE__) . 'assets/frontend-modern.js', ['wcb-frontend-script'], '2.6.2', true);
+            if (WCB_Theme_Settings::get_global_style_mode() === 'modern') {
+                wp_enqueue_style('wcb-frontend-modern', $this->asset_url('frontend-modern.css'), ['wcb-frontend-style'], null);
+                wp_enqueue_script('wcb-frontend-modern', $this->asset_url('frontend-modern.js'), ['wcb-frontend-script'], null, true);
             }
         }
     }
@@ -1393,45 +2210,21 @@ final class WC_Custom_Bundle_Framework
         if (isset($_POST['_bundle_instructions']))
             update_post_meta($post_id, '_bundle_instructions', wp_kses_post($_POST['_bundle_instructions']));
 
-        if (isset($_POST['_bundle_groups']) && is_array($_POST['_bundle_groups'])) {
-            $groups_data = [];
-            foreach ($_POST['_bundle_groups'] as $group) {
-                $personalization_fields = [];
-                if (isset($group['personalization_fields']) && is_array($group['personalization_fields'])) {
-                    foreach ($group['personalization_fields'] as $field) {
-                        $personalization_fields[] = ['label' => sanitize_text_field($field['label'] ?? ''), 'required' => sanitize_text_field($field['required'] ?? 'no'), 'type' => 'text'];
-                    }
-                }
-                $products_settings = [];
-                if (isset($group['products_settings']) && is_array($group['products_settings'])) {
-                    foreach ($group['products_settings'] as $pid => $settings) {
-                        $products_settings[$pid] = [
-                            'min_qty' => absint($settings['min_qty'] ?? 1),
-                            'step' => absint($settings['step'] ?? 1),
-                            'default_qty' => absint($settings['default_qty'] ?? 1),
-                            'price' => wc_format_decimal($settings['price'] ?? '')
-                        ];
-                    }
-                }
-                $groups_data[] = [
-                    'title' => sanitize_text_field($group['title'] ?? ''),
-                    'products' => isset($group['products']) ? array_map('intval', $group['products']) : [],
-                    'selection_mode' => sanitize_text_field($group['selection_mode'] ?? 'multiple'),
-                    'min_qty' => absint($group['min_qty'] ?? 1),
-                    'max_qty' => absint($group['max_qty'] ?? 0),
-                    'total_qty' => absint($group['total_qty'] ?? 1),
-                    'is_required' => isset($group['is_required']) ? 'yes' : 'no',
-                    'personalization_enabled' => isset($group['personalization_enabled']) ? 'yes' : 'no',
-                    'personalization_fields' => $personalization_fields,
-                    'products_settings' => $products_settings,
-                    'price_override' => wc_format_decimal($group['price_override'] ?? ''),
-                    // NUOVO: Salvataggio setting comportamento prezzi
-                    'show_price_behavior' => sanitize_text_field($group['show_price_behavior'] ?? 'default'),
-                ];
+        $imported_groups = null;
+        if (!empty($_POST['_wcb_import_groups_json'])) {
+            $imported_groups = json_decode(wp_unslash($_POST['_wcb_import_groups_json']), true);
+            // JSON non valido: si salva comunque quanto c'è nel pannello, avvisando l'utente
+            if ((!is_array($imported_groups) || empty($imported_groups)) && class_exists('WC_Admin_Meta_Boxes')) {
+                WC_Admin_Meta_Boxes::add_error(__('Import gruppi: il JSON incollato non è valido ed è stato ignorato.', 'wcb-framework'));
             }
-            update_post_meta($post_id, '_bundle_groups', $groups_data);
         }
-        else {
+        if (is_array($imported_groups) && !empty($imported_groups)) {
+            update_post_meta($post_id, '_bundle_groups', wp_slash(self::sanitize_groups($imported_groups)));
+            self::get_bundle_groups($post_id);
+        } elseif (isset($_POST['_bundle_groups']) && is_array($_POST['_bundle_groups'])) {
+            $groups_data = self::sanitize_groups($_POST['_bundle_groups']);
+            update_post_meta($post_id, '_bundle_groups', $groups_data);
+        } elseif (!empty($_POST['wcb_bundle_panel_present'])) {
             delete_post_meta($post_id, '_bundle_groups');
         }
 
@@ -1442,9 +2235,16 @@ final class WC_Custom_Bundle_Framework
         update_post_meta($post_id, '_bundle_add_as_separate_items', isset($_POST['_bundle_add_as_separate_items']) ? 'yes' : 'no');
         update_post_meta($post_id, '_bundle_shipping_override', isset($_POST['_bundle_shipping_override']) ? 'yes' : 'no');
         update_post_meta($post_id, '_bundle_coupon_override', isset($_POST['_bundle_coupon_override']) ? 'yes' : 'no');
+
+        // Impostazioni Layout & Visualizzazione per singolo Bundle
+        update_post_meta($post_id, '_bundle_style_mode', sanitize_text_field($_POST['_bundle_style_mode'] ?? 'default'));
+        update_post_meta($post_id, '_bundle_header_style', sanitize_text_field($_POST['_bundle_header_style'] ?? 'default'));
+        update_post_meta($post_id, '_bundle_items_layout', sanitize_text_field($_POST['_bundle_items_layout'] ?? 'default'));
+        update_post_meta($post_id, '_bundle_grid_columns', sanitize_text_field($_POST['_bundle_grid_columns'] ?? 'default'));
+        update_post_meta($post_id, '_bundle_summary_position', sanitize_text_field($_POST['_bundle_summary_position'] ?? 'default'));
+        update_post_meta($post_id, '_bundle_display_position', sanitize_text_field($_POST['_bundle_display_position'] ?? 'default'));
     }
 
-    // [RESTO DELLA CLASSE INVARIATO...]
     public function add_bundle_pricing_fields()
     {
         echo '<div class="options_group show_if_custom_bundle">';
@@ -1467,17 +2267,358 @@ final class WC_Custom_Bundle_Framework
             'placeholder' => '(es. Sconto 20% applicabile al checkout)'
         ]);
         echo '</div>';
+
+        echo '<div class="options_group">';
+        echo '<p class="form-field"><strong>' . esc_html__('Layout e Visualizzazione Frontend (Override Singolo Bundle)', 'wcb-framework') . '</strong></p>';
+        woocommerce_wp_select([
+            'id' => '_bundle_style_mode',
+            'label' => __('Stile Grafico', 'wcb-framework'),
+            'options' => [
+                'default' => __('Usa impostazione generale (Default)', 'wcb-framework'),
+                'classic' => __('Classico del Plugin', 'wcb-framework'),
+                'modern' => __('Moderno del Plugin (Card, Ombreggiature, Step)', 'wcb-framework'),
+                'theme_native' => __('Grafica Preimpostata di WooCommerce e del Tema', 'wcb-framework'),
+            ],
+            'desc_tip' => true,
+            'description' => __('Scegli lo stile grafico specifico per questo bundle oppure eredita quello globale.', 'wcb-framework'),
+        ]);
+        woocommerce_wp_select([
+            'id' => '_bundle_header_style',
+            'label' => __('Intestazione Pagina', 'wcb-framework'),
+            'options' => [
+                'default' => __('Usa impostazione generale (Default)', 'wcb-framework'),
+                'auto' => __('Automatico (Hero; Standard con Stile Tema o "Dentro il riepilogo")', 'wcb-framework'),
+                'hero' => __('Hero Banner a tutta larghezza', 'wcb-framework'),
+                'wc_native' => __('Standard di WooCommerce e del Tema', 'wcb-framework'),
+            ],
+            'desc_tip' => true,
+            'description' => __('Controlla se mostrare il banner Hero o la galleria/titolo standard di WooCommerce/Tema.', 'wcb-framework'),
+        ]);
+        woocommerce_wp_select([
+            'id' => '_bundle_items_layout',
+            'label' => __('Vista Prodotti', 'wcb-framework'),
+            'options' => [
+                'default' => __('Usa impostazione generale (Default)', 'wcb-framework'),
+                'list' => __('Lista (1 colonna - orizzontale)', 'wcb-framework'),
+                'grid' => __('Griglia (Multi-colonna - card verticali)', 'wcb-framework'),
+            ],
+            'desc_tip' => true,
+            'description' => __('Mostra gli articoli dei gruppi in lista a 1 colonna oppure in griglia.', 'wcb-framework'),
+        ]);
+        woocommerce_wp_select([
+            'id' => '_bundle_grid_columns',
+            'label' => __('Colonne Griglia (Desktop)', 'wcb-framework'),
+            'options' => [
+                'default' => __('Usa impostazione generale (Default)', 'wcb-framework'),
+                '2' => __('2 Colonne', 'wcb-framework'),
+                '3' => __('3 Colonne', 'wcb-framework'),
+                '4' => __('4 Colonne', 'wcb-framework'),
+            ],
+            'desc_tip' => true,
+            'description' => __('Numero di colonne su desktop quando la Vista Prodotti è impostata su Griglia.', 'wcb-framework'),
+        ]);
+        woocommerce_wp_select([
+            'id' => '_bundle_summary_position',
+            'label' => __('Posizione Riepilogo', 'wcb-framework'),
+            'options' => [
+                'default' => __('Usa impostazione generale (Default)', 'wcb-framework'),
+                'sidebar' => __('Di fianco a destra (Sticky su desktop, barra fissa su mobile)', 'wcb-framework'),
+                'bottom' => __('A fondo pagina (Standard, sotto i gruppi)', 'wcb-framework'),
+                'bottom_fixed' => __('Fisso a fondo pagina (Sticky Bottom sempre visibile)', 'wcb-framework'),
+                'top_fixed' => __('Fisso a inizio pagina (Sticky Top sempre visibile)', 'wcb-framework'),
+            ],
+            'desc_tip' => true,
+            'description' => __('Scegli dove posizionare il riepilogo del prezzo totale e il pulsante di acquisto.', 'wcb-framework'),
+        ]);
+        woocommerce_wp_select([
+            'id' => '_bundle_display_position',
+            'label' => __('Posizione Modulo in Pagina', 'wcb-framework'),
+            'options' => [
+                'default' => __('Usa impostazione generale (Default)', 'wcb-framework'),
+                'after_summary' => __('Sotto l\'immagine / Dopo il riepilogo', 'wcb-framework'),
+                'inside_summary' => __('Dentro il riepilogo / Blocco Aggiungi al Carrello (FSE)', 'wcb-framework'),
+                'after_tabs' => __('A fondo pagina (Dopo le tab)', 'wcb-framework'),
+                'manual' => __('Manuale (Solo Shortcode)', 'wcb-framework'),
+            ],
+            'desc_tip' => true,
+            'description' => __('Dove agganciare il configuratore nella pagina prodotto.', 'wcb-framework'),
+        ]);
         echo '</div>';
+        echo '</div>';
+    }
+
+    public function get_bundle_options_wrapper_html($product_id, $force_position = '')
+    {
+        if (!empty($this->rendered_bundles[$product_id])) {
+            return '';
+        }
+        $this->rendered_bundles[$product_id] = true;
+
+        $settings = WCB_Theme_Settings::get_bundle_layout_settings($product_id);
+        $pos = $force_position ?: $settings['display_position'];
+        $wrapper_classes = [
+            'wcb-wrapper',
+            'wcb-position-' . esc_attr($pos),
+            'wcb-style-' . esc_attr($settings['style_mode']),
+            'wcb-view-' . esc_attr($settings['items_layout']),
+            'wcb-cols-' . esc_attr($settings['grid_columns']),
+            'wcb-summary-pos-' . esc_attr($settings['summary_position']),
+        ];
+        if ($pos !== 'inside_summary') {
+            $wrapper_classes[] = 'alignwide';
+        }
+
+        ob_start();
+        ?>
+        <style id="wcb-layout-critical-css-<?php echo esc_attr($product_id); ?>">
+            .wcb-view-grid .wcb-group-products {
+                display: grid !important;
+                grid-template-columns: repeat(var(--wcb-grid-cols, <?php echo intval($settings['grid_columns']); ?>), minmax(0, 1fr)) !important;
+                gap: 20px !important;
+                align-items: stretch !important;
+            }
+            @media (max-width: 991px) {
+                .wcb-view-grid .wcb-group-products {
+                    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                }
+            }
+            @media (max-width: 575px) {
+                .wcb-view-grid .wcb-group-products {
+                    grid-template-columns: minmax(0, 1fr) !important;
+                }
+            }
+            .wcb-view-grid .wcb-product-item {
+                margin-bottom: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: flex-start !important;
+                height: 100% !important;
+                box-sizing: border-box !important;
+                position: relative !important;
+                padding: 16px !important;
+                min-width: 0 !important;
+                overflow: clip !important;
+            }
+            .wcb-view-grid .wcb-product-item > label {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: stretch !important;
+                text-align: center !important;
+                width: 100% !important;
+                position: relative !important;
+            }
+            .wcb-view-grid .wcb-product-item input[type="radio"],
+            .wcb-view-grid .wcb-product-item input[type="checkbox"] {
+                position: absolute !important;
+                top: 10px !important;
+                left: 10px !important;
+                z-index: 95 !important;
+                margin: 0 !important;
+            }
+            .wcb-view-grid .wcb-product-thumbnail,
+            .wcb-view-grid .wcb-product-thumbnail.wcb-gallery-wrapper {
+                width: 100% !important;
+                height: auto !important;
+                aspect-ratio: 1 / 1 !important;
+                margin: 0 0 15px 0 !important;
+                order: 0 !important;
+            }
+            .wcb-view-grid .wcb-product-thumbnail img {
+                width: 100% !important;
+                height: 100% !important;
+                max-width: none !important;
+                aspect-ratio: 1 / 1 !important;
+                object-fit: cover !important;
+            }
+            .wcb-view-grid .wcb-product-info {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                text-align: center !important;
+                width: 100% !important;
+                flex: 1 !important;
+                padding-top: 0 !important;
+            }
+            .wcb-view-grid .wcb-qty-wrapper {
+                width: 100% !important;
+                max-width: 120px !important;
+                margin: 8px auto 0 !important;
+            }
+            .wcb-view-grid .wcb-variation-container,
+            .wcb-view-grid .wcb-variation-sets-container,
+            .wcb-view-grid .wcb-personalization-field-container,
+            .wcb-view-grid .wcb-extra-units-container {
+                padding: 12px !important;
+                margin-top: 12px !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+            }
+            .wcb-view-grid .wcb-variation-field,
+            .wcb-view-grid .wcb-personalization-field {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 6px !important;
+                text-align: left !important;
+            }
+            .wcb-view-grid .wcb-variation-field > label,
+            .wcb-view-grid .wcb-personalization-field > label {
+                min-width: 0 !important;
+                margin-right: 0 !important;
+            }
+            .wcb-view-grid .wcb-variation-field select,
+            .wcb-view-grid .wcb-personalization-field input[type="text"] {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+            }
+            body.wcb-modern-theme .wcb-product-price span.woocommerce-Price-amount,
+            body.wcb-modern-theme .wcb-product-price span.woocommerce-Price-currencySymbol {
+                font-size: 1em !important;
+                font-weight: 800 !important;
+                color: var(--wcb-m-primary, #4361ee) !important;
+            }
+            body.wcb-modern-theme .wcb-product-price small.woocommerce-price-suffix,
+            body.wcb-modern-theme .wcb-product-price .wcb-included-badge {
+                font-size: 0.65em !important;
+                font-weight: 600 !important;
+                color: #888 !important;
+                -webkit-text-fill-color: #888 !important;
+            }
+            .wcb-product-excerpt {
+                font-size: 0.9em;
+                line-height: 1.45;
+                color: #555;
+                margin: 2px 0 10px;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+            .wcb-view-grid .wcb-product-excerpt {
+                align-items: center !important;
+                text-align: center !important;
+            }
+            .wcb-open-desc-modal {
+                appearance: none;
+                background: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                font-size: 0.92em !important;
+                font-weight: 600 !important;
+                color: #0073aa !important;
+                text-decoration: underline !important;
+                cursor: pointer !important;
+                box-shadow: none !important;
+                line-height: 1.3 !important;
+                min-height: 0 !important;
+                text-transform: none !important;
+                letter-spacing: normal !important;
+            }
+            dialog.wcb-desc-modal {
+                padding: 0;
+                border: none;
+                border-radius: 12px;
+                max-width: 680px;
+                width: calc(100% - 32px);
+                max-height: 85vh;
+                background: #fff;
+                color: #23282d;
+                box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+                margin: auto;
+                overflow: hidden;
+            }
+            dialog.wcb-desc-modal::backdrop {
+                background: rgba(15, 23, 42, 0.65);
+                backdrop-filter: blur(4px);
+            }
+            .wcb-desc-modal-inner {
+                display: flex;
+                flex-direction: column;
+                max-height: 85vh;
+            }
+            .wcb-desc-modal-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+                padding: 18px 24px;
+                border-bottom: 1px solid #e5e7eb;
+                background: #f8fafc;
+            }
+            .wcb-desc-modal-title {
+                margin: 0 !important;
+                font-size: 1.25em !important;
+                font-weight: 700 !important;
+                color: #1e293b !important;
+            }
+            .wcb-desc-modal-close {
+                appearance: none;
+                background: transparent !important;
+                border: none !important;
+                font-size: 28px !important;
+                line-height: 1 !important;
+                color: #64748b !important;
+                cursor: pointer !important;
+                padding: 4px 8px !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+            }
+            .wcb-desc-modal-body {
+                padding: 24px;
+                overflow-y: auto;
+                font-size: 1em;
+                line-height: 1.65;
+                color: #334155;
+            }
+        </style>
+        <script>
+        document.addEventListener("click", function(e) {
+            var openBtn = e.target.closest ? e.target.closest(".wcb-open-desc-modal") : null;
+            if (openBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                var item = openBtn.closest(".wcb-product-item");
+                if (!item) return;
+                var tpl = item.querySelector(".wcb-full-description-template");
+                var modal = document.getElementById("wcb-desc-modal");
+                if (!tpl || !modal) return;
+                var titleEl = modal.querySelector(".wcb-desc-modal-title");
+                var bodyEl = modal.querySelector(".wcb-desc-modal-body");
+                if (titleEl) titleEl.textContent = tpl.getAttribute("data-product-title") || "";
+                if (bodyEl) bodyEl.innerHTML = tpl.innerHTML;
+                if (typeof modal.showModal === "function") {
+                    if (!modal.open) modal.showModal();
+                } else {
+                    modal.setAttribute("open", "open");
+                }
+                return;
+            }
+            var modalEl = document.getElementById("wcb-desc-modal");
+            if (modalEl && modalEl.open) {
+                var closeBtn = e.target.closest ? e.target.closest(".wcb-desc-modal-close") : null;
+                if (closeBtn || e.target === modalEl) {
+                    if (typeof modalEl.close === "function") modalEl.close();
+                    else modalEl.removeAttribute("open");
+                }
+            }
+        }, true);
+        </script>
+        <?php
+        echo '<div id="wcb-bundle-configurator-' . esc_attr($product_id) . '" class="' . implode(' ', $wrapper_classes) . '" style="--wcb-grid-cols: ' . esc_attr($settings['grid_columns']) . ';">';
+        $this->render_bundle_options_html($product_id);
+        echo '</div>';
+        return ob_get_clean();
     }
 
     public function display_bundle_options_start()
     {
         global $product;
         if ($product && $product->get_type() === 'custom_bundle') {
-            $display_pos = get_option('wcb_bundle_display_position', 'after_summary');
-            echo '<div class="wcb-wrapper wcb-position-' . esc_attr($display_pos) . '">';
-            $this->render_bundle_options_html($product->get_id());
-            echo '</div>';
+            $product_id = $product->get_id();
+            echo $this->get_bundle_options_wrapper_html($product_id);
         }
     }
 
@@ -1495,15 +2636,10 @@ final class WC_Custom_Bundle_Framework
 
         // Rimuovi hook automatici se presenti, per evitare duplicati
         remove_action('woocommerce_after_single_product_summary', [$this, 'display_bundle_options_start'], 5);
-        // Remove potentially new hooks just in case
+        remove_action('woocommerce_single_product_summary', [$this, 'display_bundle_options_start'], 30);
         remove_action('woocommerce_after_single_product', [$this, 'display_bundle_options_start'], 10);
 
-        ob_start();
-        echo '<div class="wcb-wrapper wcb-position-manual">';
-        // Force rendering even if product_id is different from global post (which shouldn't happen usually but...)
-        $this->render_bundle_options_html($product_id);
-        echo '</div>';
-        return ob_get_clean();
+        return $this->get_bundle_options_wrapper_html($product_id, 'manual');
     }
 
     public function render_bundle_options_html($product_id)
@@ -1511,41 +2647,81 @@ final class WC_Custom_Bundle_Framework
         $product = wc_get_product($product_id);
         if (!$product || $product->get_type() !== 'custom_bundle')
             return;
-        $bundle_groups_raw = get_post_meta($product->get_id(), '_bundle_groups', true);
+
+        // Garantisce che CSS/JS siano caricati anche se il bundle è renderizzato via Blocchi FSE o Page Builder
+        $this->enqueue_bundle_assets_for_product($product_id);
+
+        $bundle_groups_raw = self::get_bundle_groups($product->get_id());
         if (empty($bundle_groups_raw) || !is_array($bundle_groups_raw)) {
-            echo '<p>' . esc_html__('Prodotto non configurato.', 'wcb-framework') . '</p>';
+            if (current_user_can('edit_products')) {
+                $edit_url = get_edit_post_link($product->get_id());
+                echo '<div class="woocommerce-info" style="margin: 20px 0; padding: 20px; border-left: 4px solid #2271b1;">';
+                echo '<strong>' . esc_html__('Prodotto Bundle non ancora configurato.', 'wcb-framework') . '</strong><br>';
+                echo esc_html__('Nessun gruppo di prodotti trovato per questo bundle. Nota: se hai importato il prodotto tramite "Prodotti → Esporta CSV" di WooCommerce da una versione precedente alla 2.7.3, WooCommerce non esportava i campi array dei gruppi.', 'wcb-framework');
+                if ($edit_url) {
+                    echo '<br><a href="' . esc_url($edit_url) . '" class="button" style="margin-top: 10px;">✏️ ' . esc_html__('Configura o Importa i Gruppi del Bundle', 'wcb-framework') . '</a>';
+                }
+                echo '</div>';
+            } else {
+                echo '<p>' . esc_html__('Prodotto non configurato.', 'wcb-framework') . '</p>';
+            }
             return;
         }
         $bundle_groups_filtered = [];
+        $missing_ids = [];
         foreach ($bundle_groups_raw as $group_index => $group) {
             $available_products = [];
             if (!empty($group['products'])) {
                 foreach ($group['products'] as $p_id) {
                     $child_product = wc_get_product($p_id);
-                    // Relaxed visibility check + Debug logic
                     if ($child_product) {
                         $available_products[] = $p_id;
-                    }
-                    else {
-                    // Debug: Product not found
+                    } else {
+                        $missing_ids[] = intval($p_id);
                     }
                 }
             }
             $group['products'] = $available_products;
-            // Indice originale preservato: il submit usa questi indici per
-            // ritrovare la config del gruppo nel meta, non devono slittare
-            // se un gruppo viene escluso perché senza prodotti validi.
             if (!empty($group['products']))
                 $bundle_groups_filtered[$group_index] = $group;
         }
-        // Setup global product for template compatibility (fixes REST API get_id() on null error)
+
+        if (empty($bundle_groups_filtered)) {
+            if (current_user_can('edit_products')) {
+                $edit_url = get_edit_post_link($product->get_id());
+                echo '<div class="woocommerce-error" style="margin: 20px 0; padding: 20px;">';
+                echo '<strong>' . esc_html__('Attenzione Admin: I prodotti associati ai gruppi di questo bundle non esistono su questo sito.', 'wcb-framework') . '</strong><br>';
+                if (!empty($missing_ids)) {
+                    echo esc_html(sprintf(__('ID prodotti mancanti o cambiati dopo importazione: %s.', 'wcb-framework'), implode(', ', array_unique($missing_ids)))) . '<br>';
+                }
+                if ($edit_url) {
+                    echo '<a href="' . esc_url($edit_url) . '" class="button" style="margin-top: 10px;">✏️ ' . esc_html__('Ricollega i prodotti nella tab Prodotti Bundle', 'wcb-framework') . '</a>';
+                }
+                echo '</div>';
+            } else {
+                echo '<p>' . esc_html__('Prodotto non configurato.', 'wcb-framework') . '</p>';
+            }
+            return;
+        }
+
+        $layout_settings = WCB_Theme_Settings::get_bundle_layout_settings($product_id);
+
         global $product;
         $original_product = $product;
-        $product = wc_get_product($product_id); // Ensure we have the product object
+        $product = wc_get_product($product_id);
 
-        wc_get_template('single-product/add-to-cart/custom-bundle.php', ['product' => $product, 'bundle_groups' => $bundle_groups_filtered, 'instructions' => get_post_meta($product->get_id(), '_bundle_instructions', true)], '', plugin_dir_path(__FILE__) . 'templates/');
+        wc_get_template(
+            'single-product/add-to-cart/custom-bundle.php',
+            [
+                'product' => $product,
+                'bundle_groups' => $bundle_groups_filtered,
+                'instructions' => get_post_meta($product->get_id(), '_bundle_instructions', true),
+                'layout_settings' => $layout_settings,
+            ],
+            '',
+            plugin_dir_path(__FILE__) . 'templates/'
+        );
 
-        // Restore original global
         $product = $original_product;
     }
     public function display_bundle_selections_in_cart($item_data, $cart_item)
@@ -1561,6 +2737,20 @@ final class WC_Custom_Bundle_Framework
                     if ($product) {
                         $product_line = $product->get_formatted_name();
                         $item_data[] = ['key' => '', 'display' => $product_line, 'display_class' => 'wcb-bundle-item-meta'];
+                        if (!empty($selection['extra_units_info']) && !empty($selection['extra_units_info']['units'])) {
+                            $eu_info = $selection['extra_units_info'];
+                            $eu_total = floatval($eu_info['units']) * floatval($eu_info['unit_price']);
+                            $eu_text = sprintf(
+                                '+%d (+%s)',
+                                intval($eu_info['units']),
+                                self::format_extra_amount($eu_total)
+                            );
+                            $item_data[] = [
+                                'key' => '',
+                                'display' => '<small style="padding-left: 15px;">' . esc_html($eu_info['label']) . ': ' . esc_html($eu_text) . '</small>',
+                                'display_class' => 'wcb-bundle-item-meta'
+                            ];
+                        }
                         if (!empty($selection['personalization_data']) && is_array($selection['personalization_data'])) {
                             foreach ($selection['personalization_data'] as $field) {
                                 if (!empty($field['value']))
@@ -1570,6 +2760,14 @@ final class WC_Custom_Bundle_Framework
                     }
                 }
             }
+        }
+        $extra_info = $cart_item['wcb_extra_units_info'] ?? ($cart_item['wcb_data']['extra_units_info'] ?? null);
+        if (!empty($extra_info) && !empty($extra_info['units'])) {
+            $eu_total = floatval($extra_info['units']) * floatval($extra_info['unit_price']);
+            $item_data[] = [
+                'key' => $extra_info['label'] ?: __('Unità in eccesso', 'wcb-framework'),
+                'display' => esc_html(sprintf('+%d (+%s)', intval($extra_info['units']), self::format_extra_amount($eu_total)))
+            ];
         }
         if (!empty($cart_item['wcb_item_personalization'])) {
             foreach ($cart_item['wcb_item_personalization'] as $field) {
@@ -1592,9 +2790,17 @@ final class WC_Custom_Bundle_Framework
                     if ($product) {
                         $unique_key = $selection['item_id'] . json_encode($selection['personalization_data'] ?? []);
                         if (!isset($display_items[$unique_key])) {
-                            $display_items[$unique_key] = ['product_name' => $product->get_formatted_name(), 'personalization_data' => $selection['personalization_data'] ?? [], 'quantity' => 0];
+                            $display_items[$unique_key] = [
+                                'product_name' => $product->get_formatted_name(),
+                                'personalization_data' => $selection['personalization_data'] ?? [],
+                                'extra_units_info' => $selection['extra_units_info'] ?? null,
+                                'quantity' => 0
+                            ];
                         }
                         $display_items[$unique_key]['quantity']++;
+                        if (empty($display_items[$unique_key]['extra_units_info']) && !empty($selection['extra_units_info'])) {
+                            $display_items[$unique_key]['extra_units_info'] = $selection['extra_units_info'];
+                        }
                     }
                 }
             }
@@ -1602,17 +2808,30 @@ final class WC_Custom_Bundle_Framework
                 $display_line = $display_item['product_name'];
                 if ($display_item['quantity'] > 1)
                     $display_line .= ' &times; ' . $display_item['quantity'];
+                $details = [];
+                if (!empty($display_item['extra_units_info']) && !empty($display_item['extra_units_info']['units'])) {
+                    $eu_info = $display_item['extra_units_info'];
+                    $eu_total = floatval($eu_info['units']) * floatval($eu_info['unit_price']);
+                    $details[] = ($eu_info['label'] ?: __('Unità in eccesso', 'wcb-framework')) . ': +' . intval($eu_info['units']) . ' (+' . self::format_extra_amount($eu_total) . ')';
+                }
                 if (!empty($display_item['personalization_data']) && is_array($display_item['personalization_data'])) {
-                    $details = [];
                     foreach ($display_item['personalization_data'] as $field) {
                         if (!empty($field['value']))
                             $details[] = $field['label'] . ': ' . $field['value'];
                     }
-                    if (!empty($details))
-                        $display_line .= ' | ' . implode(', ', $details);
                 }
+                if (!empty($details))
+                    $display_line .= ' | ' . implode(', ', $details);
                 $item->add_meta_data(':>', $display_line, false);
             }
+        }
+        $extra_info = $values['wcb_extra_units_info'] ?? ($values['wcb_data']['extra_units_info'] ?? null);
+        if (!empty($extra_info) && !empty($extra_info['units'])) {
+            $eu_total = floatval($extra_info['units']) * floatval($extra_info['unit_price']);
+            $item->add_meta_data(
+                $extra_info['label'] ?: __('Unità in eccesso', 'wcb-framework'),
+                sprintf('+%d (+%s)', intval($extra_info['units']), self::format_extra_amount($eu_total))
+            );
         }
         if (!empty($values['wcb_item_personalization']) && is_array($values['wcb_item_personalization'])) {
             foreach ($values['wcb_item_personalization'] as $field) {
@@ -1682,11 +2901,26 @@ final class WC_Custom_Bundle_Framework
 
     public function add_frontend_modern_class($classes)
     {
-        if (get_option('wcb_enable_modern_theme', WCB_MODERN_THEME_DEFAULT)) {
-            if (is_product()) {
-                $product = wc_get_product(get_the_ID());
-                if ($product && $product->get_type() === 'custom_bundle') {
+        if (is_product() && get_the_ID()) {
+            $product = wc_get_product(get_the_ID());
+            if ($product && $product->get_type() === 'custom_bundle') {
+                $settings = WCB_Theme_Settings::get_bundle_layout_settings($product->get_id());
+                if ($settings['style_mode'] === 'modern') {
                     $classes[] = 'wcb-modern-theme';
+                } elseif ($settings['style_mode'] === 'theme_native') {
+                    $classes[] = 'wcb-theme-native';
+                }
+                if ($settings['header_style'] === 'hero') {
+                    $classes[] = 'wcb-header-hero';
+                } else {
+                    $classes[] = 'wcb-header-wc-native';
+                }
+                if ($settings['summary_position'] === 'bottom_fixed') {
+                    $classes[] = 'wcb-has-bottom-bar';
+                } elseif ($settings['summary_position'] === 'top_fixed') {
+                    $classes[] = 'wcb-has-top-bar';
+                } elseif ($settings['summary_position'] === 'sidebar') {
+                    $classes[] = 'wcb-has-mobile-bottom-bar';
                 }
             }
         }
@@ -1816,7 +3050,8 @@ final class WC_Custom_Bundle_Framework
                 $product_id = $cart_item['data']->get_id();
                 $original_product = wc_get_product($product_id);
                 if ($original_product) {
-                    $reg_price = floatval($original_product->get_regular_price());
+                    $raw_reg = $original_product->get_regular_price();
+                    $reg_price = floatval($raw_reg !== '' ? $raw_reg : $original_product->get_price());
                     $cart->cart_contents[$cart_item_key]['data']->set_price($reg_price);
 
                     $bundle_id = $cart_item['wcb_bundle_part_of'];
@@ -1842,26 +3077,29 @@ final class WC_Custom_Bundle_Framework
             if (!isset($first_item['wcb_parent_bundle_id']))
                 continue;
             $parent_bundle_id = $first_item['wcb_parent_bundle_id'];
-            $bundle_groups = get_post_meta($parent_bundle_id, '_bundle_groups', true);
+            $bundle_groups = self::get_bundle_groups($parent_bundle_id);
 
             foreach ($items as $cart_item_key => $cart_item_data) {
                 $product_id = $cart_item_data['data']->get_id();
+                $parent_product_id = $cart_item_data['data']->is_type('variation') ? $cart_item_data['data']->get_parent_id() : $product_id;
                 $source_group_idx = $cart_item_data['wcb_source_group_index'] ?? null;
 
                 if ($source_group_idx !== null && isset($bundle_groups[$source_group_idx])) {
                     $group_config = $bundle_groups[$source_group_idx];
-                    $item_settings = $group_config['products_settings'][$product_id] ?? [];
+                    $group_mode = $group_config['selection_mode'] ?? 'multiple';
+                    $item_settings = $group_config['products_settings'][$parent_product_id] ?? ($group_config['products_settings'][$product_id] ?? []);
 
                     if (isset($item_settings['price']) && $item_settings['price'] !== '') {
                         $cart->cart_contents[$cart_item_key]['data']->set_price(floatval($item_settings['price']));
                     }
-                    elseif (isset($group_config['price_override']) && $group_config['price_override'] !== '') {
+                    elseif (in_array($group_mode, ['single', 'multiple'], true) && isset($group_config['price_override']) && $group_config['price_override'] !== '') {
                         $target_total = floatval($group_config['price_override']);
                         $actual_total = $bundle_group_totals[$bundle_cart_id][$source_group_idx] ?? 0;
 
                         if ($actual_total > 0) {
                             $ratio = $target_total / $actual_total;
-                            $regular_price_this_item = floatval($cart_item_data['data']->get_regular_price());
+                            $raw_reg_item = $cart_item_data['data']->get_regular_price();
+                            $regular_price_this_item = floatval($raw_reg_item !== '' ? $raw_reg_item : $cart_item_data['data']->get_price());
                             $new_price = $regular_price_this_item * $ratio;
                             $cart->cart_contents[$cart_item_key]['data']->set_price($new_price);
                         }
@@ -1876,9 +3114,11 @@ final class WC_Custom_Bundle_Framework
                 $current_bundle_subtotal += floatval($cart->cart_contents[$cart_item_key]['data']->get_price()) * $item['quantity'];
             }
 
-            if ($pricing_type === 'fixed') {
-                $bundle_product = wc_get_product($parent_bundle_id);
-                $bundle_final_price = floatval($bundle_product->get_price());
+            $bundle_product = wc_get_product($parent_bundle_id);
+            $fixed_bundle_price = $bundle_product ? floatval($bundle_product->get_price()) : 0;
+
+            if ($pricing_type === 'fixed' && $fixed_bundle_price > 0) {
+                $bundle_final_price = $fixed_bundle_price;
                 if ($current_bundle_subtotal > 0) {
                     $discount_ratio = $bundle_final_price / $current_bundle_subtotal;
                     foreach ($items as $key => $item) {
@@ -1905,6 +3145,38 @@ final class WC_Custom_Bundle_Framework
                     }
                 }
             }
+
+            // FASE 2C: Supplemento Unità in Eccesso (+N × Extra €/cad) sulla singola riga
+            // Applicato dopo eventuali override/sconti di gruppo o bundle per garantire
+            // che ogni unità extra aggiunga esattamente l'importo unitario configurato.
+            foreach ($items as $cart_item_key => $cart_item_data) {
+                $extra_units = absint($cart_item_data['wcb_extra_units'] ?? ($cart_item_data['wcb_data']['extra_units'] ?? 0));
+                if ($extra_units <= 0) {
+                    continue;
+                }
+                $product_id = $cart_item_data['data']->get_id();
+                $parent_product_id = $cart_item_data['data']->is_type('variation') ? $cart_item_data['data']->get_parent_id() : $product_id;
+                $source_group_idx = $cart_item_data['wcb_source_group_index'] ?? ($cart_item_data['wcb_data']['source_group_index'] ?? null);
+                if ($source_group_idx !== null && isset($bundle_groups[$source_group_idx])) {
+                    $group_config = $bundle_groups[$source_group_idx];
+                    $item_settings = $group_config['products_settings'][$parent_product_id] ?? ($group_config['products_settings'][$product_id] ?? []);
+                    $extra_unit_price = isset($item_settings['extra_unit_price']) && $item_settings['extra_unit_price'] !== '' ? floatval($item_settings['extra_unit_price']) : 0;
+                    // Carrello e ordine devono mostrare l'importo addebitato ora (config attuale), non quello salvato all'aggiunta
+                    $live_info = $extra_unit_price > 0 ? array_merge((array) ($cart_item_data['wcb_extra_units_info'] ?? ($cart_item_data['wcb_data']['extra_units_info'] ?? [])), ['units' => $extra_units, 'unit_price' => $extra_unit_price]) : null;
+                    $cart->cart_contents[$cart_item_key]['wcb_extra_units_info'] = $live_info;
+                    if (isset($cart->cart_contents[$cart_item_key]['wcb_data'])) {
+                        $cart->cart_contents[$cart_item_key]['wcb_data']['extra_units_info'] = $live_info;
+                    }
+                    if ($extra_unit_price > 0) {
+                        // Extra per bundle: ripartito sulla quantità della riga in UN bundle, così scala con la quantità
+                        // (righe aggiunte prima di questa versione: quantità attuale, extra fisso come prima)
+                        $base_qty = max(1, intval($cart_item_data['wcb_data']['extra_units_base_qty'] ?? ($cart_item_data['quantity'] ?? 1)));
+                        $current_unit_price = floatval($cart->cart_contents[$cart_item_key]['data']->get_price());
+                        $extra_per_item_qty = ($extra_units * $extra_unit_price) / $base_qty;
+                        $cart->cart_contents[$cart_item_key]['data']->set_price($current_unit_price + $extra_per_item_qty);
+                    }
+                }
+            }
         }
 
         // FASE 3: Bundle Unico (Non Separato)
@@ -1912,13 +3184,45 @@ final class WC_Custom_Bundle_Framework
             if ('custom_bundle' === $cart_item['data']->get_type() && !empty($cart_item['wcb_bundle_selections'])) {
                 $product_id = $cart_item['product_id'];
                 $pricing_type = get_post_meta($product_id, '_bundle_pricing_type', true);
+                $bundle_product = wc_get_product($product_id);
+                $fixed_bundle_price = $bundle_product ? floatval($bundle_product->get_price()) : 0;
+                $bundle_groups = self::get_bundle_groups($product_id);
 
-                if ('calculated' === $pricing_type) {
+                // Calcola eventuale supplemento totale per unità in eccesso (+N × Extra €/cad)
+                $total_extra_surcharge = 0;
+                foreach ($cart_item['wcb_bundle_selections'] as $group_index => $group_selections) {
+                    $group_config = $bundle_groups[$group_index] ?? [];
+                    foreach ($group_selections as $sel_index => $selection) {
+                        $sel_extra_units = absint($selection['extra_units'] ?? 0);
+                        if ($sel_extra_units <= 0) {
+                            continue;
+                        }
+                        $child_product = wc_get_product($selection['item_id']);
+                        if (!$child_product) {
+                            continue;
+                        }
+                        $lookup_id = $child_product->is_type('variation') ? $child_product->get_parent_id() : $selection['item_id'];
+                        $prod_settings = $group_config['products_settings'][$lookup_id] ?? ($group_config['products_settings'][$selection['item_id']] ?? []);
+                        $extra_unit_price = isset($prod_settings['extra_unit_price']) && $prod_settings['extra_unit_price'] !== '' ? floatval($prod_settings['extra_unit_price']) : 0;
+                        if ($extra_unit_price > 0) {
+                            $total_extra_surcharge += $sel_extra_units * $extra_unit_price;
+                        }
+                        // Allinea il riepilogo in carrello/ordine all'importo effettivamente addebitato
+                        $cart->cart_contents[$cart_item_key]['wcb_bundle_selections'][$group_index][$sel_index]['extra_units_info'] = $extra_unit_price > 0
+                            ? array_merge((array) ($selection['extra_units_info'] ?? []), ['units' => $sel_extra_units, 'unit_price' => $extra_unit_price])
+                            : null;
+                    }
+                }
+
+                if ('fixed' === $pricing_type && $fixed_bundle_price > 0) {
+                    $cart_item['data']->set_price($fixed_bundle_price + $total_extra_surcharge);
+                }
+                else {
                     $calculated_price = 0;
-                    $bundle_groups = get_post_meta($product_id, '_bundle_groups', true);
                     foreach ($cart_item['wcb_bundle_selections'] as $group_index => $group_selections) {
                         $group_config = $bundle_groups[$group_index] ?? [];
-                        $group_price_override = isset($group_config['price_override']) && $group_config['price_override'] !== '' ? floatval($group_config['price_override']) : null;
+                        $group_mode = $group_config['selection_mode'] ?? 'multiple';
+                        $group_price_override = (in_array($group_mode, ['single', 'multiple'], true) && isset($group_config['price_override']) && $group_config['price_override'] !== '') ? floatval($group_config['price_override']) : null;
 
                         if ($group_price_override !== null) {
                             $calculated_price += $group_price_override;
@@ -1928,9 +3232,12 @@ final class WC_Custom_Bundle_Framework
                                 $child_product = wc_get_product($selection['item_id']);
                                 if (!$child_product)
                                     continue;
-                                $prod_settings = $group_config['products_settings'][$selection['item_id']] ?? [];
+                                $lookup_id = $child_product->is_type('variation') ? $child_product->get_parent_id() : $selection['item_id'];
+                                $prod_settings = $group_config['products_settings'][$lookup_id] ?? ($group_config['products_settings'][$selection['item_id']] ?? []);
                                 $item_price_override = isset($prod_settings['price']) && $prod_settings['price'] !== '' ? floatval($prod_settings['price']) : null;
-                                $calculated_price += ($item_price_override !== null) ? $item_price_override : floatval($child_product->get_price());
+                                $sel_qty = isset($selection['quantity']) ? max(1, intval($selection['quantity'])) : 1;
+                                $unit_price = ($item_price_override !== null) ? $item_price_override : floatval($child_product->get_price());
+                                $calculated_price += $unit_price * $sel_qty;
                             }
                         }
                     }
@@ -1940,16 +3247,11 @@ final class WC_Custom_Bundle_Framework
                         $calculated_price *= (1 - ($discount_percentage / 100));
                     if ($discount_amount > 0)
                         $calculated_price -= $discount_amount;
-                    $cart_item['data']->set_price(max(0, $calculated_price));
-                }
-                elseif ('fixed' === $pricing_type) {
-                    $bundle_product = wc_get_product($product_id);
-                    if ($bundle_product)
-                        $cart_item['data']->set_price(floatval($bundle_product->get_price()));
+                    $cart_item['data']->set_price(max(0, $calculated_price) + $total_extra_surcharge);
                 }
             }
         }
     }
 }
 WC_Custom_Bundle_Framework::get_instance();
-WC_Custom_Bundle_Framework::get_instance();
+endif;

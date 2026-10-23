@@ -264,7 +264,9 @@
   /* Impedisce a capo */
   align-items: center;
   /* Allinea verticalmente */
-  padding: 12px 15px;
+  padding: 12px 44px 12px 15px;
+  /* Spazio a destra riservato alla X di rimozione (posizionata in assoluto) */
+  position: relative;
   border-bottom: 1px solid #f0f0f1;
   background: #fff;
   gap: 15px;
@@ -321,10 +323,10 @@
 
 /* Nome Prodotto */
 .wcb-row-name {
-  flex: 1 1 auto;
-  /* Prende lo spazio disponibile */
-  min-width: 0;
-  /* Permette al testo di accorciarsi */
+  flex: 1 1 0;
+  /* Prende solo lo spazio avanzato: cede per primo, prima dei campi */
+  min-width: 80px;
+  /* Si accorcia (con ...) ma resta leggibile */
   padding-right: 10px;
 }
 
@@ -347,8 +349,9 @@
 
 /* CONTENITORE INPUT (Min, Step, Price) */
 .wcb-row-inputs {
-  flex: 0 0 auto;
-  /* Non si restringe MAI */
+  flex: 0 1 auto;
+  min-width: 0;
+  /* Se lo spazio non basta i campi si restringono, senza andare a capo */
   display: flex;
   align-items: center;
   gap: 10px;
@@ -390,6 +393,11 @@
   display: flex !important;
   flex-direction: column;
   gap: 2px;
+  /* WooCommerce impone alle label di .woocommerce_options_panel width:150px e float:left */
+  width: auto !important;
+  float: none !important;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 /* Forza l'occulsione completa degli elementi nascosti */
@@ -403,6 +411,12 @@
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;
+}
+
+/* Etichetta Extra nascosta finché non c'è un prezzo extra (display:none inline messo dal JS) */
+.wcb-row-inputs label.wcb-setting-extra-label[style*="display: none"],
+.wcb-row-inputs label.wcb-setting-extra-label[style*="display:none"] {
+  display: none !important;
 }
 
 /* Quando nascondi label, nascondi anche il loro contenuto */
@@ -428,8 +442,9 @@
 
 /* Input Specifici - !important per vincere su stili globali */
 .wcb-row-inputs input.tiny-input {
-  width: 60px !important;
-  min-width: 60px !important;
+  width: 56px !important;
+  min-width: 40px !important;
+  max-width: 100% !important;
   height: 30px !important;
   padding: 0 5px !important;
   text-align: center;
@@ -438,8 +453,9 @@
 }
 
 .wcb-row-inputs input.wc_input_price {
-  width: 80px !important;
-  min-width: 80px !important;
+  width: 72px !important;
+  min-width: 48px !important;
+  max-width: 100% !important;
   height: 30px !important;
   padding: 0 5px !important;
   text-align: right;
@@ -447,10 +463,23 @@
   margin: 0 !important;
 }
 
+.wcb-row-inputs input.wcb-extra-label-input {
+  width: 130px !important;
+  min-width: 70px !important;
+  max-width: 100% !important;
+  height: 30px !important;
+  padding: 0 6px !important;
+  text-align: left;
+  font-size: 12px !important;
+  margin: 0 !important;
+}
+
 /* Bottone Rimuovi */
 .wcb-row-actions {
-  flex: 0 0 30px;
-  text-align: right;
+  /* Fissa in alto a destra, indipendente da quanti campi ci sono nella riga */
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 
 .wcb-remove-product-row {
@@ -572,7 +601,7 @@
   /* Su schermi medi/piccoli, permetti il wrap per evitare rotture */
   .wcb-product-setting-row {
     flex-wrap: wrap;
-    padding: 15px;
+    padding: 15px 44px 15px 15px;
   }
 
   .wcb-row-thumb {
@@ -591,16 +620,6 @@
     padding-top: 15px;
     border-top: 1px dashed #eee;
     justify-content: space-between;
-  }
-
-  .wcb-row-actions {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-  }
-
-  .wcb-product-setting-row {
-    position: relative;
   }
 
   .bundle-group .form-field.half-width {

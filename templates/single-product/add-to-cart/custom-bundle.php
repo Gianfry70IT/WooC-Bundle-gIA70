@@ -28,6 +28,38 @@ $price_sublabel = get_post_meta($product->get_id(), '_bundle_price_sublabel', tr
 // Recupero Default Globale per Nascondere Prezzi in Override
 $default_hide_override = get_option('wcb_default_hide_override_price', true);
 
+$layout_settings = ( isset( $layout_settings ) && is_array( $layout_settings ) )
+    ? $layout_settings
+    : ( class_exists( 'WCB_Theme_Settings' ) ? WCB_Theme_Settings::get_bundle_layout_settings( $product->get_id() ) : [] );
+
+$style_mode       = $layout_settings['style_mode'] ?? 'classic';
+$items_layout     = $layout_settings['items_layout'] ?? 'list';
+$grid_columns     = absint( $layout_settings['grid_columns'] ?? 3 );
+if ( $grid_columns < 2 || $grid_columns > 4 ) {
+    $grid_columns = 3;
+}
+$summary_position = $layout_settings['summary_position'] ?? 'sidebar';
+
+$form_classes = implode( ' ', [
+    'wcb-bundle-form',
+    'cart',
+    'wcb-style-' . esc_attr( $style_mode ),
+    'wcb-view-' . esc_attr( $items_layout ),
+    'wcb-cols-' . esc_attr( $grid_columns ),
+    'wcb-summary-pos-' . esc_attr( $summary_position ),
+] );
+
+$form_pricing_data = [
+    'type'                => get_post_meta( $product->get_id(), '_bundle_pricing_type', true ), // vuoto = calcolato, come nel carrello
+    'fixed_price'         => wc_get_price_to_display( $product ),
+    'discount_amount'     => floatval( get_post_meta( $product->get_id(), '_bundle_discount_amount', true ) ),
+    'discount_percentage' => floatval( get_post_meta( $product->get_id(), '_bundle_discount_percentage', true ) ),
+    'currency_symbol'     => html_entity_decode( get_woocommerce_currency_symbol(), ENT_QUOTES, 'UTF-8' ),
+    'decimal_separator'   => wc_get_price_decimal_separator(),
+    'thousand_separator'  => wc_get_price_thousand_separator(),
+    'currency_position'   => get_option( 'woocommerce_currency_pos' ),
+];
+
 ?>
 
 <div id="wcb-ajax-messages"></div>
@@ -40,7 +72,17 @@ $default_hide_override = get_option('wcb_default_hide_override_price', true);
     </div>
 </div>
 
-<form class="wcb-bundle-form cart" method="post" enctype="multipart/form-data">
+<dialog id="wcb-desc-modal" class="wcb-desc-modal" closedby="any" aria-labelledby="wcb-desc-modal-title">
+    <div class="wcb-desc-modal-inner">
+        <div class="wcb-desc-modal-header">
+            <h3 id="wcb-desc-modal-title" class="wcb-desc-modal-title"></h3>
+            <button type="button" class="wcb-desc-modal-close" aria-label="<?php esc_attr_e( 'Chiudi', 'wcb-framework' ); ?>">&times;</button>
+        </div>
+        <div class="wcb-desc-modal-body"></div>
+    </div>
+</dialog>
+
+<form class="<?php echo esc_attr( $form_classes ); ?>" style="--wcb-grid-cols: <?php echo esc_attr( $grid_columns ); ?>;" data-pricing="<?php echo esc_attr( wp_json_encode( $form_pricing_data ) ); ?>" method="post" enctype="multipart/form-data">
     <input type="hidden" name="add-to-cart" value="<?php echo esc_attr( $product->get_id() ); ?>">
     
     <div class="wcb-bundle-layout">
@@ -65,8 +107,8 @@ $default_hide_override = get_option('wcb_default_hide_override_price', true);
                     
                     // --- LOGICA OVERRIDE PREZZO E VISIBILITÀ (FIX 2.5) ---
                     $group_price_override = null;
-                    if (isset($group['price_override']) && $group['price_override'] !== '') {
-                        // Accetta anche '0' come valore valido
+                    if (in_array($selection_mode, ['single', 'multiple'], true) && isset($group['price_override']) && $group['price_override'] !== '') {
+                        // Accetta anche '0' come valore valido (solo per modalità single/multiple)
                         $group_price_override = floatval($group['price_override']);
                     }
                     
@@ -161,6 +203,11 @@ $default_hide_override = get_option('wcb_default_hide_override_price', true);
                                         $final_item_price_override = wc_get_price_to_display($child_product, array('price' => $raw_item_override));
                                     }
 
+                                    $raw_extra_unit_price = isset($p_settings['extra_unit_price']) && $p_settings['extra_unit_price'] !== '' ? floatval($p_settings['extra_unit_price']) : 0;
+                                    $has_extra_units = $raw_extra_unit_price > 0;
+                                    $display_extra_unit_price = $has_extra_units ? wc_get_price_to_display($child_product, array('price' => $raw_extra_unit_price)) : 0;
+                                    $extra_unit_label = !empty($p_settings['extra_unit_label']) ? $p_settings['extra_unit_label'] : __('Unità in eccesso', 'wcb-framework');
+
                                     $price_html = $child_product->get_price_html();
                                     
                                     // LOGICA VISUALIZZAZIONE PREZZO APPLICATA
@@ -171,7 +218,7 @@ $default_hide_override = get_option('wcb_default_hide_override_price', true);
                                         // Override di GRUPPO attivo
                                         if ($should_hide_prices) {
                                             // Stampa span per compatibilità CSS Modern Theme
-                                            $price_html = '<span>' . __('Incluso nel bundle', 'wcb-framework') . '</span>';
+                                            $price_html = '<span class="wcb-included-badge">' . __('Incluso nel bundle', 'wcb-framework') . '</span>';
                                         }
                                     }
                                     
@@ -184,12 +231,16 @@ $default_hide_override = get_option('wcb_default_hide_override_price', true);
                                     ?>
                                     <div class="wcb-product-item" 
                                         data-product-id="<?php echo esc_attr($product_id); ?>"
+                                        data-base-price="<?php echo esc_attr( wc_get_price_to_display( $child_product ) ); ?>"
                                         data-item-min="<?php echo esc_attr($item_min); ?>"
                                         data-item-step="<?php echo esc_attr($item_step); ?>"
                                         <?php 
                                         if($final_item_price_override !== null) {
                                             echo 'data-price-override="'.esc_attr($final_item_price_override).'"'; 
                                         } 
+                                        if($has_extra_units) {
+                                            echo ' data-extra-unit-price="'.esc_attr($display_extra_unit_price).'"';
+                                        }
                                         ?>
                                         <?php if(!empty($variation_data)) echo "data-variation-data='" . esc_attr(json_encode(array_values($variation_data))) . "'"; ?>
                                         <?php if($has_required_fields) echo 'data-personalization-required="true"'; ?>>                
@@ -213,29 +264,79 @@ $default_hide_override = get_option('wcb_default_hide_override_price', true);
                                                         <span class="wcb-gallery-counter">1/<?php echo count($all_images); ?></span>
                                                     <?php endif;
                                                     foreach($all_images as $index => $img_id) :
-                                                        $thumb_url = wp_get_attachment_image_url($img_id, 'thumbnail');
+                                                        $thumb_url = wp_get_attachment_image_url($img_id, 'woocommerce_thumbnail') ?: wp_get_attachment_image_url($img_id, 'thumbnail');
                                                         $full_url = wp_get_attachment_image_url($img_id, 'full');
                                                         $active_class = ($index === 0) ? 'active' : '';
                                                         ?>
-                                                        <img src="<?php echo esc_url($thumb_url); ?>" alt="<?php echo esc_attr($child_product->get_name()); ?>" data-full-image="<?php echo esc_url($full_url); ?>" class="wcb-thumbnail-image <?php echo $active_class; ?>" data-index="<?php echo $index; ?>">
+                                                        <img src="<?php echo esc_url($thumb_url); ?>" alt="<?php echo esc_attr($child_product->get_name()); ?>" data-full-image="<?php echo esc_url($full_url); ?>" class="wcb-thumbnail-image <?php echo $active_class; ?>" data-index="<?php echo $index; ?>" loading="lazy" decoding="async">
                                                     <?php endforeach;
-                                                else: echo wc_placeholder_img('thumbnail'); endif; ?>
+                                                else: echo wc_placeholder_img('woocommerce_thumbnail'); endif; ?>
                                             </div>
                                             
                                             <div class="wcb-product-info">
                                                 <?php 
                                                 $default_qty = absint($p_settings['default_qty'] ?? 1);
-                                                $qty_label = '<span class="wcb-qty-badge">'.$default_qty.'x</span> ';                                                ?>
+                                                $qty_label = '<span class="wcb-qty-badge">'.$default_qty.'x</span> ';
+                                                $raw_short_desc = trim( strip_shortcodes( wp_strip_all_tags( $child_product->get_short_description() ) ) );
+                                                $raw_long_desc_html = $child_product->get_description();
+                                                $raw_long_desc_text = trim( strip_shortcodes( wp_strip_all_tags( $raw_long_desc_html ) ) );
+                                                $excerpt_source = $raw_short_desc !== '' ? $raw_short_desc : $raw_long_desc_text;
+                                                $product_snippet = $excerpt_source !== '' ? wp_trim_words( $excerpt_source, 18, '…' ) : '';
+                                                $has_long_description = ( $raw_long_desc_text !== '' );
+                                                ?>
                                                 <span class="wcb-product-name"><?php echo $qty_label . esc_html( $child_product->get_name() ); ?></span>
-                                                <span class="wcb-product-price"><?php echo $price_html; ?></span>
+                                                <?php if ( $product_snippet !== '' || $has_long_description ) : ?>
+                                                    <div class="wcb-product-excerpt">
+                                                        <?php if ( $product_snippet !== '' ) : ?>
+                                                            <span class="wcb-product-excerpt-text"><?php echo esc_html( $product_snippet ); ?></span>
+                                                        <?php endif; ?>
+                                                        <?php if ( $has_long_description ) : ?>
+                                                            <button type="button" class="wcb-open-desc-modal" data-product-id="<?php echo esc_attr( $product_id ); ?>" aria-haspopup="dialog">
+                                                                <?php esc_html_e( 'Leggi descrizione completa', 'wcb-framework' ); ?>
+                                                            </button>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                                <span class="wcb-product-price price"><?php echo $price_html; ?></span>
                                                 <?php if ( in_array( $selection_mode, ['quantity', 'multiple_quantity'] ) ) : ?>
                                                     <div class="wcb-qty-wrapper">
-                                                        <input class="wcb-quantity-input" type="number" name="wcb_quantity[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>]" value="0" min="0" max="1000" step="<?php echo esc_attr($item_step); ?>" autocomplete="off" inputmode="numeric">
+                                                        <input class="wcb-quantity-input input-text qty text" type="number" name="wcb_quantity[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>]" value="0" min="0" max="1000" step="<?php echo esc_attr($item_step); ?>" autocomplete="off" inputmode="numeric">
                                                     </div>
                                                 <?php endif; ?>
                                             </div>
                                         </label>
-                                        
+
+                                        <?php if ($has_extra_units) :
+                                            $extra_input_id = 'wcb-extra-units-' . esc_attr($product->get_id()) . '-' . esc_attr($group_index) . '-' . esc_attr($product_id);
+                                            $extra_help_id  = $extra_input_id . '-help';
+                                        ?>
+                                            <div class="wcb-extra-units-container" style="display:none;">
+                                                <div class="wcb-extra-units-row">
+                                                    <label for="<?php echo $extra_input_id; ?>" class="wcb-extra-units-label">
+                                                        <span class="wcb-extra-units-title"><?php echo esc_html($extra_unit_label); ?></span>
+                                                        <small id="<?php echo $extra_help_id; ?>" class="wcb-extra-units-rate">
+                                                            (+<?php echo wp_kses_post(wc_price($display_extra_unit_price)); ?> <?php esc_html_e('cad.', 'wcb-framework'); ?>)
+                                                        </small>
+                                                    </label>
+                                                    <div class="wcb-extra-units-controls">
+                                                        <span class="wcb-extra-plus-prefix" aria-hidden="true">+</span>
+                                                        <input type="number"
+                                                               id="<?php echo $extra_input_id; ?>"
+                                                               class="wcb-extra-units-input input-text qty text"
+                                                               name="wcb_extra_units[<?php echo esc_attr($group_index); ?>][<?php echo esc_attr($product_id); ?>]"
+                                                               value="0"
+                                                               min="0"
+                                                               max="1000"
+                                                               step="1"
+                                                               autocomplete="off"
+                                                               inputmode="numeric"
+                                                               aria-describedby="<?php echo $extra_help_id; ?>">
+                                                        <span class="wcb-extra-units-subtotal" aria-live="polite"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+
                                         <?php if ($personalization_enabled && !empty($personalization_fields)) : ?>
                                             <div class="wcb-personalization-field-container" style="display:none;">
                                                 <?php foreach ($personalization_fields as $fIndex => $field) : 
@@ -243,12 +344,17 @@ $default_hide_override = get_option('wcb_default_hide_override_price', true);
                                                     $req_attr = $is_field_req ? 'data-required="true"' : '';
                                                     $req_star = $is_field_req ? ' <span class="required">*</span>' : '';
                                                 ?>
-                                                    <div class="wcb-personalization-field"><label><?php echo esc_html($field['label']); ?><?php echo $req_star; ?></label><input type="text" class="wcb-personalization-input" name="wcb_personalization[<?php echo esc_attr($group_index); ?>][<?php echo esc_attr($product_id); ?>][0][<?php echo $fIndex; ?>]" <?php echo $req_attr; ?>></div>
+                                                    <div class="wcb-personalization-field"><label><?php echo esc_html($field['label']); ?><?php echo $req_star; ?></label><input type="text" class="wcb-personalization-input input-text" name="wcb_personalization[<?php echo esc_attr($group_index); ?>][<?php echo esc_attr($product_id); ?>][0][<?php echo esc_attr($fIndex); ?>]" <?php echo $req_attr; ?>></div>
                                                 <?php endforeach; ?>
                                             </div>
                                         <?php endif; ?>
                                         <?php if ($child_product->is_type('variable')) : ?><div class="wcb-variation-sets-container" style="display:none;"></div><?php endif; ?>
                                         <div class="wcb-templates" style="display:none;">
+                                            <?php if ( ! empty( $has_long_description ) ) : ?>
+                                                <div class="wcb-full-description-template" data-product-title="<?php echo esc_attr( $child_product->get_name() ); ?>">
+                                                    <?php echo wp_kses_post( wpautop( do_shortcode( $raw_long_desc_html ) ) ); ?>
+                                                </div>
+                                            <?php endif; ?>
                                             <?php if ($child_product->is_type('variable')) : ?>
                                                 <div class="wcb-variation-fields-template"><?php foreach ( $child_product->get_variation_attributes() as $attribute_name => $options ) : ?>
                                                     <div class="wcb-variation-field"><label><?php echo wc_attribute_label( $attribute_name ); ?>:</label><select class="wcb-variation-select" name="wcb_variation_sets[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr($product_id); ?>][__INDEX__][attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>]" data-attribute-name="attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>" disabled><option value=""><?php _e('Scegli un\'opzione', 'wcb-framework'); ?></option><?php foreach ( $options as $option ) : ?><option value="<?php echo esc_attr( $option ); ?>"><?php echo esc_html( $option ); ?></option><?php endforeach; ?></select></div>
@@ -260,7 +366,7 @@ $default_hide_override = get_option('wcb_default_hide_override_price', true);
                                                         $req_attr = ($field['required'] ?? 'no') === 'yes' ? 'data-required="true"' : '';
                                                         $req_star = ($field['required'] ?? 'no') === 'yes' ? ' <span class="required">*</span>' : '';
                                                     ?>
-                                                        <div class="wcb-personalization-field"><label><?php echo esc_html($field['label']); ?><?php echo $req_star; ?></label><input type="text" class="wcb-personalization-input" name="wcb_personalization[<?php echo esc_attr($group_index); ?>][<?php echo esc_attr($product_id); ?>][__INDEX__][<?php echo $fIndex; ?>]" <?php echo $req_attr; ?>></div>
+                                                        <div class="wcb-personalization-field"><label><?php echo esc_html($field['label']); ?><?php echo $req_star; ?></label><input type="text" class="wcb-personalization-input input-text" name="wcb_personalization[<?php echo esc_attr($group_index); ?>][<?php echo esc_attr($product_id); ?>][__INDEX__][<?php echo esc_attr($fIndex); ?>]" <?php echo $req_attr; ?>></div>
                                                     <?php endforeach; ?>
                                                 </div>
                                             <?php endif; ?>

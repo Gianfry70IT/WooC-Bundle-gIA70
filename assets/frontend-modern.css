@@ -78,7 +78,7 @@
      padding: 30px;
      transition: var(--wcb-m-transition);
      position: relative;
-     overflow: hidden;
+     overflow: clip;
  }
 
  body.wcb-modern-theme .wcb-bundle-group:hover {
@@ -228,8 +228,9 @@
      background-clip: text;
  }
 
- /* FIX: Assicura che il testo "Incluso nel bundle" sia visibile e non trasparente */
- body.wcb-modern-theme .wcb-product-price span {
+ /* FIX: Assicura che il testo "Incluso nel bundle" e il suffisso IVA siano leggibili senza rimpicciolire l'importo */
+ body.wcb-modern-theme .wcb-product-price .wcb-included-badge,
+ body.wcb-modern-theme .wcb-product-price small.woocommerce-price-suffix {
      -webkit-text-fill-color: initial;
      background: none;
      color: #888;
@@ -407,4 +408,48 @@
          border-radius: 16px 16px 0 0;
          padding: 15px 20px;
      }
+ }
+
+ /* ==========================================================================
+   7. VISTA A GRIGLIA E POSIZIONI RIEPILOGO (TEMA MODERNO)
+   ========================================================================== */
+ body.wcb-modern-theme .wcb-view-grid .wcb-product-item {
+     margin-bottom: 0;
+     padding: 20px;
+     overflow: clip;
+ }
+
+ body.wcb-modern-theme .wcb-view-grid .wcb-product-item input[type="radio"],
+ body.wcb-modern-theme .wcb-view-grid .wcb-product-item input[type="checkbox"] {
+     position: absolute;
+     top: 26px;
+     left: 26px;
+     z-index: 6;
+     margin-right: 0;
+     background-color: rgba(255, 255, 255, 0.92);
+ }
+
+ body.wcb-modern-theme .wcb-view-grid .wcb-product-thumbnail {
+     margin-right: 0;
+     width: 100%;
+ }
+
+ body.wcb-modern-theme .wcb-view-grid .wcb-product-thumbnail img {
+     width: 100%;
+     height: 100%;
+     aspect-ratio: 1 / 1;
+ }
+
+ body.wcb-modern-theme .wcb-summary-pos-bottom .wcb-bundle-price,
+ body.wcb-modern-theme .wcb-summary-pos-bottom_fixed .wcb-bundle-price,
+ body.wcb-modern-theme .wcb-summary-pos-top_fixed .wcb-bundle-price {
+     margin: 0;
+     font-size: 2em;
+ }
+
+ body.wcb-modern-theme .wcb-summary-pos-bottom .wcb-summary-title,
+ body.wcb-modern-theme .wcb-summary-pos-bottom_fixed .wcb-summary-title,
+ body.wcb-modern-theme .wcb-summary-pos-top_fixed .wcb-summary-title {
+     text-align: left;
+     margin-bottom: 4px;
  }
