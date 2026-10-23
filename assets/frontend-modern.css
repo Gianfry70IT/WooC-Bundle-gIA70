@@ -305,7 +305,8 @@
      box-shadow: 0 10px 30px rgba(67, 97, 238, 0.3);
  }
 
- body.wcb-modern-theme .single_add_to_cart_button:disabled {
+ body.wcb-modern-theme .single_add_to_cart_button:disabled,
+ body.wcb-modern-theme .single_add_to_cart_button.wcb-is-incomplete {
      opacity: 0.5;
      cursor: not-allowed;
      transform: none !important;
@@ -452,4 +453,13 @@
  body.wcb-modern-theme .wcb-summary-pos-top_fixed .wcb-summary-title {
      text-align: left;
      margin-bottom: 4px;
+ }
+
+ /* Bundle incompleto: aspetto disattivato ma il clic resta attivo (mostra cosa manca) */
+ body.wcb-modern-theme .single_add_to_cart_button.wcb-is-incomplete {
+     cursor: pointer;
+ }
+
+ body.wcb-modern-theme .wcb-group-issue {
+     border-radius: 12px;
  }

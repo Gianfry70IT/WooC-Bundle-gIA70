@@ -1504,3 +1504,92 @@ dialog.wcb-desc-modal::backdrop {
     margin-bottom: 0;
 }
 
+
+/* ==========================================================================
+   BUNDLE INCOMPLETO: il pulsante resta cliccabile e spiega cosa manca
+   ========================================================================== */
+/* Aspetto "disattivato" ma cliccabile (alcuni temi mettono pointer-events:none su .disabled) */
+.wcb-bundle-form .single_add_to_cart_button.wcb-is-incomplete,
+.wcb-bundle-form .wcb-mobile-submit-btn.wcb-is-incomplete {
+    opacity: 0.55;
+    cursor: pointer;
+    pointer-events: auto !important;
+}
+
+/* Messaggio dentro il gruppo incompleto */
+.wcb-group-issue {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0 0 15px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: rgba(214, 54, 56, 0.08);
+    color: #b32d2e;
+    font-weight: 600;
+    font-size: 0.95em;
+    line-height: 1.4;
+}
+
+.wcb-group-issue::before {
+    content: "!";
+    flex: 0 0 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #d63638;
+    color: #fff;
+    font-size: 13px;
+    line-height: 20px;
+    text-align: center;
+}
+
+.wcb-group-issue:focus {
+    outline: none;
+}
+
+/* Evidenziazione del gruppo raggiunto dallo scroll */
+@keyframes wcbGroupAttention {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(214, 54, 56, 0); }
+    30%, 70% { box-shadow: 0 0 0 4px rgba(214, 54, 56, 0.45); }
+}
+
+.wcb-bundle-group.wcb-group-attention {
+    animation: wcbGroupAttention 1.5s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wcb-bundle-group.wcb-group-attention {
+        animation: none;
+        box-shadow: 0 0 0 3px rgba(214, 54, 56, 0.45);
+    }
+}
+
+/* Elenco dei gruppi da completare sotto il pulsante */
+.wcb-missing-summary {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: rgba(214, 54, 56, 0.06);
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.wcb-missing-summary p {
+    margin: 0 0 4px;
+    font-weight: 600;
+    color: #b32d2e;
+}
+
+.wcb-missing-summary ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.wcb-missing-summary li {
+    margin: 2px 0;
+}
+
+.wcb-missing-summary a {
+    color: inherit;
+    text-decoration: underline;
+}

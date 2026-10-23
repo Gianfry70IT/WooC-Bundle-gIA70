@@ -88,13 +88,18 @@ jQuery(document).ready(function ($) {
 
     const $addToCartButton = $bundleForm.find('.single_add_to_cart_button');
     const $messagesContainer = $('#wcb-ajax-messages');
+    // Nel template il pulsante parte "disabled" (senza JS non deve inviare nulla): da qui in poi
+    // prop('disabled') indica solo l'invio in corso, lo stato "bundle incompleto" è una classe
+    $addToCartButton.prop('disabled', false);
+    $('.wcb-mobile-submit-btn').prop('disabled', false);
+    let validationAttempted = false;
 
     // =========================================================================
     // 3. LOGICA AGGIUNTA AL CARRELLO
     // =========================================================================
     $(document).on('click', '.wcb-mobile-submit-btn', function (e) {
         e.preventDefault();
-        if (!$(this).is(':disabled') && !$(this).hasClass('disabled')) {
+        if (!$(this).is(':disabled')) {
             $bundleForm.trigger('submit');
         }
     });
@@ -102,6 +107,10 @@ jQuery(document).ready(function ($) {
     $bundleForm.on('submit', function (e) {
         e.preventDefault();
         if ($addToCartButton.is(':disabled')) return;
+        if (getIncompleteGroups().length > 0) {
+            showMissingFeedback();
+            return;
+        }
         $addToCartButton.prop('disabled', true).text('Elaborazione...');
         $messagesContainer.slideUp().empty();
 
@@ -149,61 +158,153 @@ jQuery(document).ready(function ($) {
         return isComplete;
     }
 
-    function validateGroup($group) {
+    function plural(n, singular, pluralForm) {
+        return n === 1 ? singular : pluralForm;
+    }
+
+    // Restituisce '' se il gruppo è completo, altrimenti cosa manca (testo mostrato al cliente)
+    function getGroupIssue($group) {
         const mode = $group.data('selection-mode');
-        let isValid = false;
+        const isRequired = $group.data('is-required');
+        const itemIssue = function ($productItem) {
+            if (!areVariationsComplete($productItem)) return 'Scegli le opzioni del prodotto selezionato.';
+            if (!isPersonalizationComplete($productItem)) return 'Compila i campi di personalizzazione obbligatori.';
+            return '';
+        };
         switch (mode) {
             case 'single': {
                 const $radio = $group.find('input[type="radio"]:checked');
-                if ($radio.length > 0) {
-                    const $productItem = $radio.closest('.wcb-product-item');
-                    isValid = areVariationsComplete($productItem) && isPersonalizationComplete($productItem);
-                } else if (!$group.data('is-required')) isValid = true;
-                break;
+                if ($radio.length > 0) return itemIssue($radio.closest('.wcb-product-item'));
+                return isRequired ? 'Scegli un prodotto.' : '';
             }
             case 'multiple': {
                 const min = $group.data('min-qty');
                 const max = $group.data('max-qty');
                 const $checkboxes = $group.find('input[type="checkbox"]:checked');
-                let groupQtyValid = ($checkboxes.length >= min && (max === 0 || $checkboxes.length <= max));
-                if (groupQtyValid) {
-                    let allItemsValid = true;
-                    $checkboxes.each(function () {
-                        const $productItem = $(this).closest('.wcb-product-item');
-                        if (!areVariationsComplete($productItem) || !isPersonalizationComplete($productItem)) { allItemsValid = false; return false; }
-                    });
-                    isValid = allItemsValid;
-                }
-                if ($checkboxes.length === 0 && !$group.data('is-required')) isValid = true;
-                break;
+                const count = $checkboxes.length;
+                if (count === 0 && !isRequired) return '';
+                if (count < min) return min === 1 ? 'Scegli almeno un prodotto.' : `Scegli almeno ${min} prodotti (${plural(count, 'ne hai scelto', 'ne hai scelti')} ${count}).`;
+                if (max !== 0 && count > max) return `Puoi scegliere al massimo ${max} ${plural(max, 'prodotto', 'prodotti')} (ne hai scelti ${count}).`;
+                let issue = '';
+                $checkboxes.each(function () {
+                    issue = itemIssue($(this).closest('.wcb-product-item'));
+                    return issue === '';
+                });
+                return issue;
             }
             case 'quantity':
             case 'multiple_quantity': {
                 const min = (mode === 'quantity') ? $group.data('total-qty') : $group.data('min-qty');
                 const max = (mode === 'quantity') ? $group.data('total-qty') : $group.data('max-qty');
                 let currentTotal = 0;
-                let allItemsValid = true;
+                let issue = '';
                 $group.find('.wcb-quantity-input').each(function () {
                     const $input = $(this);
+                    const $productItem = $input.closest('.wcb-product-item');
                     const qty = parseInt($input.val()) || 0;
-                    const itemMin = parseInt($input.closest('.wcb-product-item').attr('data-item-min')) || 1;
-                    const itemStep = parseInt($input.closest('.wcb-product-item').attr('data-item-step')) || 1;
+                    const itemMin = parseInt($productItem.attr('data-item-min')) || 1;
+                    const itemStep = parseInt($productItem.attr('data-item-step')) || 1;
                     currentTotal += qty;
                     if (qty > 0) {
-                        if (qty < itemMin || qty % itemStep !== 0) allItemsValid = false;
-                        const $productItem = $(this).closest('.wcb-product-item');
-                        if (!areVariationsComplete($productItem) || !isPersonalizationComplete($productItem)) allItemsValid = false;
+                        const name = $productItem.find('.wcb-product-name').first().text().trim();
+                        let qtyIssue = '';
+                        if (qty < itemMin) qtyIssue = `La quantità minima per "${name}" è ${itemMin}.`;
+                        else if (qty % itemStep !== 0) qtyIssue = `La quantità di "${name}" deve essere un multiplo di ${itemStep}.`;
+                        // itemIssue va valutato comunque: segna in rosso i campi di personalizzazione vuoti
+                        const otherIssue = itemIssue($productItem);
+                        issue = issue || qtyIssue || otherIssue;
                     }
                 });
-                if (currentTotal === 0 && !$group.data('is-required')) isValid = true;
-                else if (allItemsValid && currentTotal >= min && (max === 0 || currentTotal <= max)) {
-                    isValid = true;
-                    if (mode === 'quantity' && currentTotal !== max) isValid = false;
+                if (currentTotal === 0 && !isRequired) return '';
+                if (issue) return issue;
+                if (mode === 'quantity') {
+                    if (currentTotal < max) return `Seleziona ${max} pezzi in totale: ${plural(max - currentTotal, 'ne manca 1', 'ne mancano ' + (max - currentTotal))}.`;
+                    if (currentTotal > max) return `Seleziona ${max} pezzi in totale: ${plural(currentTotal - max, 'ne hai 1 in più', 'ne hai ' + (currentTotal - max) + ' in più')}.`;
+                    return '';
                 }
-                break;
+                if (currentTotal < min) return `Seleziona almeno ${min} ${plural(min, 'pezzo', 'pezzi')} (ora ${currentTotal}).`;
+                if (max !== 0 && currentTotal > max) return `Puoi selezionare al massimo ${max} ${plural(max, 'pezzo', 'pezzi')} (ora ${currentTotal}).`;
+                return '';
             }
         }
-        return isValid;
+        return 'Completa questo gruppo.';
+    }
+
+    function validateGroup($group) {
+        return getGroupIssue($group) === '';
+    }
+
+    // =========================================================================
+    // 4b. COSA MANCA: messaggio nel gruppo, elenco sotto il pulsante, scroll
+    // =========================================================================
+    function getIncompleteGroups() {
+        const incomplete = [];
+        $bundleForm.find('.wcb-bundle-group').each(function (index) {
+            const $group = $(this);
+            const issue = getGroupIssue($group);
+            if (issue) {
+                const title = $group.find('.wcb-group-title').first().clone().children().remove().end().text().trim();
+                incomplete.push({ $group: $group, issue: issue, title: title || ('Gruppo ' + (index + 1)) });
+            }
+        });
+        return incomplete;
+    }
+
+    function renderMissingFeedback(incomplete) {
+        $bundleForm.find('.wcb-bundle-group').each(function () {
+            const $group = $(this);
+            const found = incomplete.find(function (item) { return item.$group.is($group); });
+            let $issue = $group.find('.wcb-group-issue').first();
+            if (!found) {
+                $issue.remove();
+                return;
+            }
+            if ($issue.length === 0) {
+                $issue = $('<div class="wcb-group-issue" role="status" tabindex="-1"></div>');
+                const $title = $group.find('.wcb-group-title').first();
+                if ($title.length) $issue.insertAfter($title); else $group.prepend($issue);
+            }
+            $issue.text(found.issue);
+        });
+
+        let $summary = $bundleForm.find('.wcb-missing-summary');
+        if (incomplete.length === 0) {
+            $summary.remove();
+            return;
+        }
+        if ($summary.length === 0) {
+            $summary = $('<div class="wcb-missing-summary" aria-live="polite"></div>').insertAfter($addToCartButton);
+        }
+        const $list = $('<ul></ul>');
+        incomplete.forEach(function (item) {
+            const $link = $('<a href="#"></a>').text(item.title).on('click', function (e) {
+                e.preventDefault();
+                focusGroup(item.$group);
+            });
+            $list.append($('<li></li>').append($link));
+        });
+        $summary.empty().append($('<p></p>').text('Per continuare completa:'), $list);
+    }
+
+    function focusGroup($group) {
+        const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        $('html, body').stop().animate({ scrollTop: Math.max(0, $group.offset().top - 100) }, reduceMotion ? 0 : 400).promise().done(function () {
+            $group.removeClass('wcb-group-attention');
+            void $group[0].offsetWidth; // riavvia l'animazione se si clicca di nuovo
+            $group.addClass('wcb-group-attention');
+            setTimeout(function () { $group.removeClass('wcb-group-attention'); }, 1600);
+            // Il focus sul messaggio lo fa leggere anche agli screen reader
+            const $issue = $group.find('.wcb-group-issue').first();
+            if ($issue.length) $issue[0].focus({ preventScroll: true });
+        });
+    }
+
+    function showMissingFeedback() {
+        const incomplete = getIncompleteGroups();
+        if (incomplete.length === 0) return;
+        validationAttempted = true;
+        renderMissingFeedback(incomplete);
+        focusGroup(incomplete[0].$group);
     }
 
     function getCurrentQty($group) {
@@ -440,8 +541,12 @@ jQuery(document).ready(function ($) {
                 isBundleComplete = false;
             }
         });
-        $addToCartButton.prop('disabled', !isBundleComplete);
-        $('.wcb-mobile-submit-btn').prop('disabled', !isBundleComplete);
+        // Mai "disabled": un pulsante disabilitato non riceve il clic, e il clic serve a dire cosa manca
+        $addToCartButton.add('.wcb-mobile-submit-btn')
+            .toggleClass('disabled wcb-is-incomplete', !isBundleComplete)
+            .attr('aria-disabled', isBundleComplete ? 'false' : 'true');
+        // Dopo il primo tentativo i messaggi seguono le modifiche del cliente e spariscono a gruppo completato
+        if (validationAttempted) renderMissingFeedback(getIncompleteGroups());
         updateBundlePrice();
         $(document).trigger('wcb_bundle_state_updated', [isBundleComplete]);
     }

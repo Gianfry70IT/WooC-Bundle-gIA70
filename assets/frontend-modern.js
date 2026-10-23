@@ -203,6 +203,8 @@ jQuery(document).ready(function ($) {
     // =========================================================================
     $bundleForm.on('submit', function () {
         const $button = $(this).find('.single_add_to_cart_button, .wcb-mobile-submit-btn');
+        // Bundle incompleto: frontend.js non invia e mostra cosa manca, niente spinner
+        if ($button.hasClass('wcb-is-incomplete')) return;
         $button.addClass('loading-modern');
         $button.html('<span class="wcb-spinner"></span> Aggiungendo...');
     });
