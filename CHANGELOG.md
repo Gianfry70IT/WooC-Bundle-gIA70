@@ -17,6 +17,21 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/)
   
 ---
 
+## [2.8.2] - 2026-11-04
+
+### Aggiunto
+- ✨ **Carrello a blocchi (temi a blocchi / blocco Carrello)**: i bundle a righe separate ora sono raggruppati con la cornice colorata, la prima riga mostra "Bundle: ..." e il link "Modifica Bundle", e togliere una riga chiede conferma come nel carrello classico. I dati arrivano dalla Store API (`extensions.wcb-bundle`), le classi dal filtro `cartItemClass` del blocco
+- ✨ **Intestazione del bundle nel carrello**: "Bundle: ...", "Modifica Bundle" e il nuovo **"Elimina bundle"** stanno sopra il primo prodotto del bundle (nel carrello a blocchi in una riga dedicata in cima alla cornice). Il cestino delle singole righe del bundle è nascosto nella pagina carrello: si elimina il bundle intero (nel mini-carrello il cestino resta)
+
+### Modificato
+- Avviso di rimozione più preciso: togliendo una riga del bundle viene tolto l'intero bundle (prima diceva che i prezzi tornavano al listino)
+
+### Sicurezza
+- 🔒 **Quantità bloccate nel carrello per i bundle a righe separate**: con prezzo fisso o prezzo di gruppo, aumentare la quantità di una riga nel carrello dava più pezzi allo stesso prezzo. Ora la quantità delle righe del bundle è mostrata come testo nel carrello classico, non è modificabile nel carrello a blocchi (Store API) e il server la riporta comunque a quella di aggiunta prima di calcolare i prezzi. Per cambiare il contenuto si usa "Modifica Bundle"
+- 🔒 **Bundle non pubblicati non più acquistabili**: il bundle risultava sempre acquistabile, anche in bozza, privato o nel cestino. Ora vale la regola di WooCommerce (solo pubblicati, o visibili a chi può modificarli) senza richiedere un prezzo proprio; l'aggiunta dal form rifiuta anche i bundle protetti da password e rispetta le regole di acquisto di altri plugin (`woocommerce_add_to_cart_validation`, es. membership)
+- 🔒 **Niente bundle vuoti nel carrello**: un link `?add-to-cart=ID`, la Store API o "Ordina di nuovo" potevano aggiungere il bundle senza prodotti scelti (con prezzo calcolato anche a 0 €). Ora il bundle si aggiunge solo dal suo form; al checkout vengono tolti i bundle vuoti e le righe di bundle diventati non acquistabili
+- 🔒 Il prezzo live delle varianti non viene più restituito per prodotti non acquistabili (bozze, privati)
+
 ## [2.8.1] - 2026-11-04
 
 Prima release pubblicata su GitHub dopo la 2.6.2: include anche le modifiche delle versioni 2.7.x e 2.8.0, installate finora solo a mano.

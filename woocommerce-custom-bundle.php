@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WooC Bundle gIA70
  * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           2.8.1
+ * Version:           2.8.2
  * Author:            gIA70 - Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -204,7 +204,7 @@ class WCB_Theme_Settings
 <div class="wrap">
     <h1>
         <?php esc_html_e('WooC Bundle gIA70 - Pannello di Controllo', 'wcb-framework'); ?>
-        <span style="font-size: 13px; background: #2271b1; color: #fff; padding: 3px 10px; border-radius: 12px; vertical-align: middle; margin-left: 10px;">v2.8.1 (<?php echo esc_html(dirname(plugin_basename(__FILE__))); ?>)</span>
+        <span style="font-size: 13px; background: #2271b1; color: #fff; padding: 3px 10px; border-radius: 12px; vertical-align: middle; margin-left: 10px;">v2.8.2 (<?php echo esc_html(dirname(plugin_basename(__FILE__))); ?>)</span>
     </h1>
 
     <h2 class="nav-tab-wrapper">
@@ -757,6 +757,8 @@ final class WC_Custom_Bundle_Framework
     private $fse_columns_depth = 0;
     // Marker FSE emessi in questa richiesta: un marker scritto da altri (es. nel contenuto) viene ignorato
     private $fse_markers = [];
+    // true solo mentre il form del bundle valida l'acquisto: le aggiunte dirette del bundle (link, Store API) vengono rifiutate
+    private $adding_bundle_from_form = false;
 
     public static function get_instance()
     {
@@ -880,6 +882,24 @@ final class WC_Custom_Bundle_Framework
 
         // HOOK CALCOLO PREZZI CRITICO
         add_action('woocommerce_before_calculate_totals', [$this, 'calculate_bundle_price_in_cart'], 99);
+
+        // CARRELLO: le righe di un bundle hanno quantità fissa (con prezzo fisso o di gruppo
+        // cambiarle darebbe più pezzi allo stesso prezzo) e il bundle si acquista solo dal suo form
+        add_filter('woocommerce_cart_item_quantity', [$this, 'lock_bundle_item_cart_quantity'], 10, 3);
+        add_filter('woocommerce_cart_item_remove_link', [$this, 'hide_bundle_item_remove_link'], 10, 2);
+        add_filter('woocommerce_update_cart_validation', [$this, 'validate_bundle_item_quantity_update'], 10, 4);
+        add_filter('woocommerce_store_api_product_quantity_editable', [$this, 'store_api_bundle_item_quantity_editable'], 10, 3);
+        add_filter('woocommerce_store_api_product_quantity_minimum', [$this, 'store_api_bundle_item_quantity_limit'], 10, 3);
+        add_filter('woocommerce_store_api_product_quantity_maximum', [$this, 'store_api_bundle_item_quantity_limit'], 10, 3);
+        add_filter('woocommerce_add_to_cart_validation', [$this, 'block_direct_bundle_add_to_cart'], 10, 3);
+        add_action('woocommerce_check_cart_items', [$this, 'remove_invalid_bundle_cart_items']);
+
+        // CARRELLO A BLOCCHI: i dati del bundle (cornice, "Modifica Bundle") viaggiano nella Store API
+        if (did_action('woocommerce_blocks_loaded')) {
+            $this->register_store_api_cart_item_data();
+        } else {
+            add_action('woocommerce_blocks_loaded', [$this, 'register_store_api_cart_item_data']);
+        }
 
         // SPEDIZIONE: override delle regole di spedizione in modalità carrello
         add_filter('woocommerce_cart_shipping_packages', [$this, 'override_bundle_shipping_packages']);
@@ -1473,16 +1493,20 @@ final class WC_Custom_Bundle_Framework
                 $edit_url = add_query_arg(['wcb_edit' => $cart_item['wcb_bundle_part_of'], 'v' => time()], $parent_bundle->get_permalink());
 
                 $html = '<div class="' . implode(' ', $classes) . '">';
-                $html .= $product_name;
 
-                // Only show Bundle Label and Edit Link on the START of the group
+                // Etichetta, "Modifica Bundle" ed "Elimina bundle" sopra il primo prodotto del bundle
                 if (!empty($cart_item['wcb_is_group_start']) || !empty($cart_item['wcb_is_group_single'])) {
-                    $html .= '<div class="wcb-cart-bundle-info" data-wcb-bundle-id="' . $bundle_id_attr . '">';
-                    $html .= '<small class="wcb-bundle-label" style="display:block; margin-top:5px; color:#0073aa; font-weight:600;">' . sprintf(__('Bundle: %s', 'wcb-framework'), $parent_bundle->get_name()) . '</small>';
-                    $html .= '<a href="' . esc_url($edit_url) . '" class="wcb-edit-bundle-link" style="font-size:0.9em; text-decoration:underline;">' . __('Modifica Bundle', 'wcb-framework') . '</a>';
+                    $html .= '<div class="wcb-cart-bundle-info wcb-cart-bundle-info-top" data-wcb-bundle-id="' . $bundle_id_attr . '">';
+                    $html .= '<small class="wcb-bundle-label">' . esc_html(sprintf(__('Bundle: %s', 'wcb-framework'), $parent_bundle->get_name())) . '</small>';
+                    $html .= '<span class="wcb-bundle-actions">';
+                    $html .= '<a href="' . esc_url($edit_url) . '" class="wcb-edit-bundle-link">' . esc_html__('Modifica Bundle', 'wcb-framework') . '</a>';
+                    // Basta togliere una riga: handle_bundle_item_removed() toglie tutte le altre del bundle
+                    $html .= '<a href="' . esc_url(wc_get_cart_remove_url($cart_item_key)) . '" class="wcb-remove-bundle-link" data-confirm="' . esc_attr(self::confirm_remove_whole_bundle_text()) . '">' . esc_html__('Elimina bundle', 'wcb-framework') . '</a>';
+                    $html .= '</span>';
                     $html .= '</div>';
                 }
 
+                $html .= $product_name;
                 $html .= '</div>';
                 return $html;
             }
@@ -1499,7 +1523,8 @@ final class WC_Custom_Bundle_Framework
             return;
         }
         $product = wc_get_product($product_id);
-        if (!$product || !$product->is_type('variable')) {
+        // Solo prodotti acquistabili: niente prezzi di bozze o prodotti privati agli ospiti
+        if (!$product || !$product->is_type('variable') || !$product->is_purchasable()) {
             wp_send_json_error(['message' => 'Prodotto non valido']);
             return;
         }
@@ -1546,8 +1571,10 @@ final class WC_Custom_Bundle_Framework
 
         $product_id = isset($form_data['add-to-cart']) ? intval($form_data['add-to-cart']) : 0;
         $product = wc_get_product($product_id);
-        if (!$product) {
-            wp_send_json_error(['messages' => [__('Prodotto non trovato.', 'wcb-framework')]]);
+        // Solo bundle pubblicati (o visibili a chi può modificarli) e non protetti da password:
+        // un ID di un bundle in bozza, privato o nel cestino non deve dare accesso ai suoi prezzi
+        if (!$product || !$product->is_type('custom_bundle') || !$product->is_purchasable() || post_password_required($product_id)) {
+            wp_send_json_error(['messages' => [__('Questo bundle non è disponibile.', 'wcb-framework')]]);
             return;
         }
 
@@ -1755,6 +1782,15 @@ final class WC_Custom_Bundle_Framework
             return;
         }
 
+        // Regole di acquisto di WooCommerce e di altri plugin (membership, prodotti riservati...)
+        $this->adding_bundle_from_form = true;
+        $passed_validation = apply_filters('woocommerce_add_to_cart_validation', true, $product_id, 1);
+        $this->adding_bundle_from_form = false;
+        if (!$passed_validation) {
+            wp_send_json_error(['messages' => $this->collect_cart_error_notices(__('Non è possibile acquistare questo bundle.', 'wcb-framework'))]);
+            return;
+        }
+
         if (!empty($update_bundle_id)) {
             $cart = WC()->cart;
             foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
@@ -1824,6 +1860,7 @@ final class WC_Custom_Bundle_Framework
                 $attributes = $product_to_add->is_type('variation') ? $product_to_add->get_variation_attributes() : [];
 
                 $wcb_meta = [
+                    'line_qty' => $quantity, // quantità bloccata della riga, vedi lock_bundle_item_cart_quantity()
                     'bundle_part_of' => $bundle_cart_id,
                     'parent_bundle_id' => $product_id,
                     'bundle_configuration' => $final_selections,
@@ -1951,6 +1988,216 @@ final class WC_Custom_Bundle_Framework
             }
         }
         return $errors;
+    }
+
+    private static function confirm_remove_whole_bundle_text()
+    {
+        return __('Vuoi eliminare l\'intero bundle dal carrello?', 'wcb-framework');
+    }
+
+    private static function confirm_remove_bundle_text()
+    {
+        return __('Attenzione: rimuovendo questo articolo verrà tolto dal carrello l\'intero bundle. Vuoi procedere?', 'wcb-framework');
+    }
+
+    /**
+     * Carrello a blocchi: lo script si carica solo se la pagina carrello usa il blocco
+     * (contenuto della pagina o tema a blocchi, dove il carrello è nel template).
+     */
+    private function enqueue_blocks_cart_script()
+    {
+        $cart_page_id = function_exists('wc_get_page_id') ? wc_get_page_id('cart') : 0;
+        $uses_block = ($cart_page_id > 0 && has_block('woocommerce/cart', $cart_page_id))
+            || (function_exists('wp_is_block_theme') && wp_is_block_theme());
+        if (!$uses_block)
+            return;
+        $deps = [];
+        foreach (['wc-blocks-checkout', 'wp-data', 'wc-blocks-data-store'] as $handle) {
+            if (wp_script_is($handle, 'registered'))
+                $deps[] = $handle;
+        }
+        wp_enqueue_script('wcb-blocks-cart', $this->asset_url('frontend-blocks-cart.js'), $deps, null, true);
+        wp_localize_script('wcb-blocks-cart', 'wcb_blocks_cart', [
+            'i18n' => [
+                'confirm_remove_bundle' => self::confirm_remove_bundle_text(),
+                'bundle_label' => __('Bundle: %s', 'wcb-framework'),
+                'edit_bundle' => __('Modifica Bundle', 'wcb-framework'),
+                'remove_bundle' => __('Elimina bundle', 'wcb-framework'),
+                'confirm_remove_whole' => self::confirm_remove_whole_bundle_text(),
+            ],
+        ]);
+    }
+
+    public function register_store_api_cart_item_data()
+    {
+        if (!function_exists('woocommerce_store_api_register_endpoint_data') || !class_exists('\Automattic\WooCommerce\StoreApi\Schemas\V1\CartItemSchema'))
+            return;
+        woocommerce_store_api_register_endpoint_data([
+            'endpoint' => \Automattic\WooCommerce\StoreApi\Schemas\V1\CartItemSchema::IDENTIFIER,
+            'namespace' => 'wcb-bundle',
+            'data_callback' => [$this, 'store_api_cart_item_data'],
+            'schema_callback' => [$this, 'store_api_cart_item_schema'],
+            'schema_type' => ARRAY_A,
+        ]);
+    }
+
+    /** Stessi dati del carrello classico (posizione nel bundle, colore alternato, link di modifica). */
+    public function store_api_cart_item_data($cart_item)
+    {
+        $data = ['bundle_id' => '', 'position' => '', 'color' => 0, 'bundle_name' => '', 'edit_url' => ''];
+        $bundle_id = self::get_cart_item_bundle_id($cart_item);
+        $parent_id = absint($cart_item['wcb_parent_bundle_id'] ?? ($cart_item['wcb_data']['parent_bundle_id'] ?? 0));
+        if (!$bundle_id || !$parent_id || !WC()->cart)
+            return $data;
+
+        $keys = [];
+        $bundle_ids = [];
+        foreach (WC()->cart->get_cart() as $key => $item) {
+            $bid = self::get_cart_item_bundle_id($item);
+            if (!$bid)
+                continue;
+            if (!in_array($bid, $bundle_ids, true))
+                $bundle_ids[] = $bid;
+            if ($bid === $bundle_id)
+                $keys[] = $key;
+        }
+        $total = count($keys);
+        $pos = array_search($cart_item['key'] ?? '', $keys, true);
+        if ($total <= 1)
+            $position = 'single';
+        elseif ($pos === 0)
+            $position = 'start';
+        elseif ($pos === $total - 1)
+            $position = 'end';
+        else
+            $position = 'middle';
+
+        $parent = wc_get_product($parent_id);
+        $data['bundle_id'] = sanitize_html_class($bundle_id);
+        $data['position'] = $position;
+        $data['color'] = (array_search($bundle_id, $bundle_ids, true) % 2 === 0) ? 1 : 2;
+        if ($parent) {
+            $data['bundle_name'] = $parent->get_name();
+            $data['edit_url'] = add_query_arg(['wcb_edit' => $bundle_id, 'v' => time()], $parent->get_permalink());
+        }
+        return $data;
+    }
+
+    public function store_api_cart_item_schema()
+    {
+        $field = function ($type, $description) {
+            return ['description' => $description, 'type' => $type, 'context' => ['view', 'edit'], 'readonly' => true];
+        };
+        return [
+            'bundle_id' => $field('string', 'ID del bundle nel carrello a cui appartiene la riga.'),
+            'position' => $field('string', 'Posizione della riga nel bundle: start, middle, end o single.'),
+            'color' => $field('integer', 'Colore alternato del bundle (1 o 2).'),
+            'bundle_name' => $field('string', 'Nome del prodotto bundle.'),
+            'edit_url' => $field('string', 'Link per modificare il bundle.'),
+        ];
+    }
+
+    /** ID del bundle nel carrello a cui appartiene la riga (bundle a righe separate), oppure null. */
+    private static function get_cart_item_bundle_id($cart_item)
+    {
+        if (!is_array($cart_item))
+            return null;
+        return $cart_item['wcb_bundle_part_of'] ?? ($cart_item['wcb_data']['bundle_part_of'] ?? null);
+    }
+
+    /**
+     * Carrello classico: niente cestino sulle singole righe del bundle, si usa "Elimina bundle".
+     * Solo nella pagina carrello: nel mini-carrello il cestino resta l'unico modo per togliere il bundle.
+     */
+    public function hide_bundle_item_remove_link($link, $cart_item_key)
+    {
+        if (!function_exists('is_cart') || !is_cart() || !WC()->cart)
+            return $link;
+        return self::get_cart_item_bundle_id(WC()->cart->get_cart_item($cart_item_key)) ? '' : $link;
+    }
+
+    /** Carrello classico: quantità mostrata come testo, non modificabile. */
+    public function lock_bundle_item_cart_quantity($product_quantity, $cart_item_key, $cart_item = null)
+    {
+        if (!self::get_cart_item_bundle_id($cart_item))
+            return $product_quantity;
+        $qty = absint($cart_item['quantity']);
+        return sprintf('%1$d <input type="hidden" name="cart[%2$s][qty]" value="%1$d" />', $qty, esc_attr($cart_item_key));
+    }
+
+    /** Carrello classico: rifiuta un aggiornamento con quantità diversa (0 = rimozione, ammessa). */
+    public function validate_bundle_item_quantity_update($passed, $cart_item_key, $values, $quantity)
+    {
+        if ($passed && self::get_cart_item_bundle_id($values) && (int)$quantity !== 0 && (int)$quantity !== (int)($values['quantity'] ?? 0)) {
+            wc_add_notice(__('Le quantità dei prodotti di un bundle non si possono cambiare dal carrello: usa "Modifica Bundle".', 'wcb-framework'), 'error');
+            return false;
+        }
+        return $passed;
+    }
+
+    /** Carrello a blocchi (Store API): quantità non modificabile. */
+    public function store_api_bundle_item_quantity_editable($editable, $product = null, $cart_item = null)
+    {
+        return self::get_cart_item_bundle_id($cart_item) ? false : $editable;
+    }
+
+    /** Store API: minimo e massimo pari alla quantità attuale, così il server rifiuta ogni altro valore. */
+    public function store_api_bundle_item_quantity_limit($value, $product = null, $cart_item = null)
+    {
+        return self::get_cart_item_bundle_id($cart_item) ? absint($cart_item['quantity']) : $value;
+    }
+
+    /**
+     * Il bundle si aggiunge solo dal suo form: un link ?add-to-cart=ID, la Store API o "Ordina di nuovo"
+     * metterebbero nel carrello un bundle vuoto (con prezzo calcolato anche a 0 €).
+     */
+    public function block_direct_bundle_add_to_cart($passed, $product_id, $quantity = 1)
+    {
+        if (!$passed || $this->adding_bundle_from_form)
+            return $passed;
+        $product = wc_get_product($product_id);
+        if ($product && $product->is_type('custom_bundle')) {
+            wc_add_notice(sprintf(__('Per acquistare "%s" scegli i prodotti dalla pagina del bundle.', 'wcb-framework'), $product->get_name()), 'error');
+            return false;
+        }
+        return $passed;
+    }
+
+    /**
+     * Rete di sicurezza prima del checkout: toglie bundle senza prodotti scelti e righe
+     * di bundle non più acquistabili (messi in bozza, privati o eliminati dopo l'aggiunta).
+     */
+    public function remove_invalid_bundle_cart_items()
+    {
+        if (!WC()->cart)
+            return;
+        $removed = [];
+        foreach (WC()->cart->get_cart() as $key => $item) {
+            if (empty($item['data']) || !is_a($item['data'], 'WC_Product'))
+                continue;
+            $remove = false;
+            $name = $item['data']->get_name();
+            if ($item['data']->is_type('custom_bundle') && empty($item['wcb_bundle_selections'])) {
+                $remove = true;
+            }
+            elseif (self::get_cart_item_bundle_id($item)) {
+                $parent_id = $item['wcb_parent_bundle_id'] ?? ($item['wcb_data']['parent_bundle_id'] ?? 0);
+                $parent = $parent_id ? wc_get_product($parent_id) : null;
+                if (!$parent || !$parent->is_type('custom_bundle') || !$parent->is_purchasable()) {
+                    $remove = true;
+                    $name = $parent ? $parent->get_name() : $name;
+                }
+            }
+            if ($remove) {
+                remove_action('woocommerce_cart_item_removed', [$this, 'handle_bundle_item_removed'], 10);
+                WC()->cart->remove_cart_item($key);
+                add_action('woocommerce_cart_item_removed', [$this, 'handle_bundle_item_removed'], 10, 2);
+                $removed[$name] = true;
+            }
+        }
+        foreach (array_keys($removed) as $name) {
+            wc_add_notice(sprintf(__('"%s" non è più disponibile ed è stato rimosso dal carrello.', 'wcb-framework'), $name), 'error');
+        }
     }
 
     private function remove_bundle_from_cart($bundle_cart_id)
@@ -2238,7 +2485,7 @@ final class WC_Custom_Bundle_Framework
             'layout' => $layout_settings,
             'edit_mode' => ['active' => !empty($edit_config), 'bundle_id' => $edit_bundle_id, 'config' => $enriched_config],
             'i18n' => [
-                'confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework'),
+                'confirm_remove_bundle' => self::confirm_remove_bundle_text(),
                 'update_bundle_btn' => __('Aggiorna Bundle', 'wcb-framework')
             ]
         ]);
@@ -2271,10 +2518,11 @@ final class WC_Custom_Bundle_Framework
         }
 
         if (is_cart()) {
+            $this->enqueue_blocks_cart_script();
             wp_enqueue_style('wcb-frontend-style', $this->asset_url('frontend.css'), [], null);
             wp_enqueue_script('wcb-frontend-script', $this->asset_url('frontend.js'), ['jquery'], null, true);
             wp_localize_script('wcb-frontend-script', 'wcb_params', [
-                'i18n' => ['confirm_remove_bundle' => __('Attenzione: Rimuovendo questo articolo, perderai lo sconto bundle e i prezzi degli altri articoli torneranno al listino originale. Vuoi procedere?', 'wcb-framework')]
+                'i18n' => ['confirm_remove_bundle' => self::confirm_remove_bundle_text()]
             ]);
             if (WCB_Theme_Settings::get_global_style_mode() === 'modern') {
                 wp_enqueue_style('wcb-frontend-modern', $this->asset_url('frontend-modern.css'), ['wcb-frontend-style'], null);
@@ -3121,6 +3369,15 @@ final class WC_Custom_Bundle_Framework
         if (is_admin() && !defined('DOING_AJAX'))
             return;
 
+        // FASE 0: quantità bloccate. Una riga di bundle modificata per altre vie (API, plugin terzi)
+        // torna alla quantità con cui è stata aggiunta prima di calcolare i prezzi
+        foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
+            $locked_qty = absint($cart_item['wcb_data']['line_qty'] ?? 0);
+            if ($locked_qty > 0 && self::get_cart_item_bundle_id($cart_item) && absint($cart_item['quantity']) !== $locked_qty) {
+                $cart->cart_contents[$cart_item_key]['quantity'] = $locked_qty;
+            }
+        }
+
         // FASE 1: Pre-calcolo Totali Gruppi (Regolare)
         $bundle_group_totals = [];
         foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
@@ -3155,6 +3412,11 @@ final class WC_Custom_Bundle_Framework
             if (!isset($first_item['wcb_parent_bundle_id']))
                 continue;
             $parent_bundle_id = $first_item['wcb_parent_bundle_id'];
+            // Bundle non più acquistabile (bozza, privato, cestino): niente prezzi del bundle, restano quelli di listino.
+            // remove_invalid_bundle_cart_items() toglie poi le righe dal carrello.
+            $parent_bundle_obj = wc_get_product($parent_bundle_id);
+            if (!$parent_bundle_obj || !$parent_bundle_obj->is_type('custom_bundle') || !$parent_bundle_obj->is_purchasable())
+                continue;
             $bundle_groups = self::get_bundle_groups($parent_bundle_id);
 
             foreach ($items as $cart_item_key => $cart_item_data) {

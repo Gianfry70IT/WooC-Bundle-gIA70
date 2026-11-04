@@ -1,5 +1,5 @@
 /*
- * asset/frontend.js - Versione 2.8.1
+ * asset/frontend.js - Versione 2.8.2
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -83,6 +83,13 @@ jQuery(document).ready(function ($) {
     }
     groupCartItems();
     $(document.body).on('updated_cart_totals', groupCartItems);
+
+    // "Elimina bundle" nel carrello classico (nel carrello a blocchi lo gestisce frontend-blocks-cart.js)
+    $(document.body).on('click', 'a.wcb-remove-bundle-link', function (e) {
+        if (!confirm($(this).data('confirm') || 'Vuoi eliminare l\'intero bundle dal carrello?')) {
+            e.preventDefault(); e.stopImmediatePropagation(); return false;
+        }
+    });
 
     $(document.body).on('click', '.remove', function (e) {
         const $row = $(this).closest('tr.cart_item');

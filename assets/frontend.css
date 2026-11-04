@@ -1,5 +1,5 @@
 /*
- * asset/frontend.css - Versione 2.8.1
+ * asset/frontend.css - Versione 2.8.2
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -1653,4 +1653,123 @@ dialog.wcb-desc-modal::backdrop {
     font-weight: 600;
     font-size: 0.95em;
     line-height: 1.4;
+}
+
+/* ==========================================================================
+   CARRELLO A BLOCCHI (WooCommerce Cart block)
+   Classi aggiunte da frontend-blocks-cart.js con i dati della Store API
+   ========================================================================== */
+.wc-block-cart tr.wcb-cart-item-child {
+    --wcb-bundle-bg: rgba(255, 235, 59, 0.15);
+    --wcb-bundle-accent: rgba(230, 180, 0, 0.9);
+    background-color: var(--wcb-bundle-bg);
+}
+
+.wc-block-cart tr.wcb-cart-item-child.wcb-bundle-color-2 {
+    --wcb-bundle-bg: rgba(33, 150, 243, 0.12);
+    --wcb-bundle-accent: rgba(33, 150, 243, 0.85);
+}
+
+/* Cornice: barra colorata a sinistra di ogni riga del bundle */
+.wc-block-cart tr.wcb-cart-item-child > td:first-child {
+    box-shadow: inset 4px 0 0 var(--wcb-bundle-accent);
+}
+
+/* Righe dello stesso bundle unite: niente separatore tra una e l'altra */
+.wc-block-cart tr.wcb-cart-item-child.wcb-group-middle,
+.wc-block-cart tr.wcb-cart-item-child.wcb-group-end,
+.wc-block-cart tr.wcb-cart-item-child.wcb-group-middle > td,
+.wc-block-cart tr.wcb-cart-item-child.wcb-group-end > td {
+    border-top: 0 !important; /* senza bordo la barra colorata resta continua */
+}
+
+/* Distanza dal bordo colorato: il blocco mette l'immagine a filo della riga */
+.wc-block-cart tr.wcb-cart-item-child > td:first-child {
+    padding-left: 14px;
+}
+
+.wc-block-cart tr.wcb-cart-item-child > td:last-child {
+    padding-right: 12px;
+}
+
+/* Riga del bundle che segue l'intestazione: niente separatore */
+.wc-block-cart tr.wcb-cart-item-child.wcb-group-start > td,
+.wc-block-cart tr.wcb-cart-item-child.wcb-group-single > td {
+    border-top: 0 !important;
+}
+
+/* Cestino nascosto sulle singole righe del bundle: si usa "Elimina bundle" */
+.wc-block-cart tr.wcb-cart-item-child .wc-block-cart-item__remove-link {
+    display: none !important;
+}
+
+/* Intestazione del bundle (riga aggiunta da frontend-blocks-cart.js) */
+.wc-block-cart tr.wcb-bundle-header > td {
+    padding: 12px 12px 4px 14px !important;
+}
+
+.wc-block-cart tr.wcb-bundle-header .wcb-cart-bundle-info {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font-size: 0.9em;
+}
+
+.wc-block-cart tr.wcb-bundle-header .wcb-bundle-label {
+    margin: 0;
+}
+
+/* ==========================================================================
+   AZIONI DEL BUNDLE NEL CARRELLO (classico e a blocchi)
+   ========================================================================== */
+.wcb-bundle-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.wcb-bundle-actions .wcb-edit-bundle-link,
+.wcb-bundle-actions .wcb-remove-bundle-link {
+    margin-top: 0;
+}
+
+.wcb-remove-bundle-link {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #f0f0f1;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font: inherit;
+    font-size: 0.85em !important;
+    line-height: inherit;
+    color: #333 !important;
+    text-decoration: none !important;
+    cursor: pointer;
+}
+
+.wcb-remove-bundle-link:hover,
+.wcb-remove-bundle-link:focus-visible {
+    background: #fff;
+    border-color: #b32d2e;
+    color: #b32d2e !important;
+}
+
+.wcb-remove-bundle-link.is-loading {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+/* Carrello classico: il box sta sopra il nome del primo prodotto */
+.wcb-cart-bundle-info.wcb-cart-bundle-info-top {
+    margin: 0 0 8px;
+}
+
+.wcb-cart-bundle-info-top .wcb-bundle-label {
+    margin-bottom: 4px;
 }
