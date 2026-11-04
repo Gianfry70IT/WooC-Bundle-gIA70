@@ -1,5 +1,5 @@
 /*
- * asset/frontend.js - Versione 2.6.1
+ * asset/frontend.js - Versione 2.8.1
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -7,6 +7,7 @@
 
 jQuery(document).ready(function ($) {
     const $bundleForm = $('.wcb-bundle-form');
+    const ALL_UNAVAILABLE_MSG = 'Al momento nessun prodotto di questo gruppo è disponibile.';
 
     // =========================================================================
     // 0. INIT CRITICO
@@ -26,8 +27,17 @@ jQuery(document).ready(function ($) {
             const isRequired = $group.data('is-required');
             const mode = $group.data('selection-mode');
 
+            // Gruppo con tutti i prodotti esauriti: avviso visibile subito, non solo dopo il clic sul pulsante
+            const $items = $group.find('.wcb-product-item');
+            if ($items.length > 0 && $items.not('.wcb-out-of-stock').length === 0 && $group.find('.wcb-group-stock-notice').length === 0) {
+                const $notice = $('<div class="wcb-group-stock-notice" role="status"></div>').text(ALL_UNAVAILABLE_MSG);
+                const $title = $group.find('.wcb-group-title').first();
+                if ($title.length) $notice.insertAfter($title); else $group.prepend($notice);
+            }
+
             if (isRequired && (mode === 'single' || mode === 'multiple')) {
-                const $inputs = $group.find('input[type="radio"], input[type="checkbox"]');
+                // I prodotti esauriti hanno l'input disabilitato: non contano per la selezione automatica
+                const $inputs = $group.find('input[type="radio"], input[type="checkbox"]').not(':disabled');
                 if ($inputs.length === 1) {
                     const $input = $inputs.first();
                     if (!$input.is(':checked')) {
@@ -166,6 +176,10 @@ jQuery(document).ready(function ($) {
     function getGroupIssue($group) {
         const mode = $group.data('selection-mode');
         const isRequired = $group.data('is-required');
+        const $groupItems = $group.find('.wcb-product-item');
+        if (isRequired && $groupItems.length > 0 && $groupItems.not('.wcb-out-of-stock').length === 0) {
+            return ALL_UNAVAILABLE_MSG;
+        }
         const itemIssue = function ($productItem) {
             if (!areVariationsComplete($productItem)) return 'Scegli le opzioni del prodotto selezionato.';
             if (!isPersonalizationComplete($productItem)) return 'Compila i campi di personalizzazione obbligatori.';
@@ -708,7 +722,12 @@ jQuery(document).ready(function ($) {
                 let attrName = key.startsWith('attribute_') ? key : 'attribute_' + key;
                 let $select = $container.find('select[data-attribute-name="' + attrName + '"]');
                 if (!$select.length) $select = $container.find('select[name*="[' + attrName + ']"]');
-                if ($select.length) { $select.prop('disabled', false); $select.val(value).trigger('change'); }
+                if ($select.length) {
+                    $select.prop('disabled', false).val(value);
+                    // Variante nel frattempo esaurita: niente preselezione, il cliente ne sceglie un'altra
+                    if ($select.find('option:selected').is(':disabled')) $select.val('');
+                    $select.trigger('change');
+                }
             });
         }
         $.each(config, function (groupIndex, selections) {
@@ -723,7 +742,8 @@ jQuery(document).ready(function ($) {
             $.each(itemCounts, function (prodId, items) {
                 let $productItem = $group.find('.wcb-product-item[data-product-id="' + prodId + '"]');
                 if (!$productItem.length) { const $input = $group.find('input[value="' + prodId + '"]'); if ($input.length) $productItem = $input.closest('.wcb-product-item'); }
-                if ($productItem.length) {
+                // Prodotto esaurito dopo l'aggiunta al carrello: non lo ripristiniamo, il gruppo segnala cosa manca
+                if ($productItem.length && !$productItem.hasClass('wcb-out-of-stock')) {
                     const qty = items.length;
                     const $checkbox = $productItem.find('input[type="checkbox"], input[type="radio"]');
                     if ($checkbox.length) {

@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WooC Bundle gIA70
  * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           2.8.0
+ * Version:           2.8.1
  * Author:            gIA70 - Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -204,7 +204,7 @@ class WCB_Theme_Settings
 <div class="wrap">
     <h1>
         <?php esc_html_e('WooC Bundle gIA70 - Pannello di Controllo', 'wcb-framework'); ?>
-        <span style="font-size: 13px; background: #2271b1; color: #fff; padding: 3px 10px; border-radius: 12px; vertical-align: middle; margin-left: 10px;">v2.8.0 (<?php echo esc_html(dirname(plugin_basename(__FILE__))); ?>)</span>
+        <span style="font-size: 13px; background: #2271b1; color: #fff; padding: 3px 10px; border-radius: 12px; vertical-align: middle; margin-left: 10px;">v2.8.1 (<?php echo esc_html(dirname(plugin_basename(__FILE__))); ?>)</span>
     </h1>
 
     <h2 class="nav-tab-wrapper">
@@ -1744,6 +1744,12 @@ final class WC_Custom_Bundle_Framework
             }
         }
 
+        // DISPONIBILITÀ: il form disabilita i prodotti esauriti, ma il server non si fida del client
+        // (pagina aperta da tempo, ultimo pezzo appena venduto, POST manipolato)
+        if (empty($errors)) {
+            $errors = $this->get_bundle_stock_errors($final_selections, $bundle_groups);
+        }
+
         if (!empty($errors)) {
             wp_send_json_error(['messages' => array_unique($errors)]);
             return;
@@ -1856,12 +1862,20 @@ final class WC_Custom_Bundle_Framework
 
                 $this->debug_log('WCB DEBUG - Adding item ' . ($idx + 1) . '/' . $total_items . ' position: ' . ($wcb_meta['is_group_start'] ?? false ? 'START' : ($wcb_meta['is_group_end'] ?? false ? 'END' : ($wcb_meta['is_group_middle'] ?? false ? 'MIDDLE' : 'SINGLE'))));
 
-                WC()->cart->add_to_cart($parent_id, $quantity, $variation_id, $attributes, $cart_item_data);
+                if (!WC()->cart->add_to_cart($parent_id, $quantity, $variation_id, $attributes, $cart_item_data)) {
+                    // Un bundle a metà non deve restare nel carrello: togliamo le righe già aggiunte
+                    $this->remove_bundle_from_cart($bundle_cart_id);
+                    wp_send_json_error(['messages' => $this->collect_cart_error_notices(sprintf(__('Non è stato possibile aggiungere "%s" al carrello.', 'wcb-framework'), $product_to_add->get_name()))]);
+                    return;
+                }
             }
         }
         else {
             $cart_item_data = ['wcb_bundle_selections' => $final_selections];
-            WC()->cart->add_to_cart($product_id, 1, 0, [], $cart_item_data);
+            if (!WC()->cart->add_to_cart($product_id, 1, 0, [], $cart_item_data)) {
+                wp_send_json_error(['messages' => $this->collect_cart_error_notices(__('Non è stato possibile aggiungere il bundle al carrello.', 'wcb-framework'))]);
+                return;
+            }
         }
 
         $message = !empty($update_bundle_id) ? __('Bundle aggiornato con successo.', 'wcb-framework') : __('Prodotti aggiunti al carrello.', 'wcb-framework');
@@ -1902,6 +1916,70 @@ final class WC_Custom_Bundle_Framework
         }
 
         return $cart_item_data;
+    }
+
+    /**
+     * Verifica che ogni prodotto scelto sia disponibile e in quantità sufficiente.
+     * La quantità tiene conto della "quantità predefinita" (badge 2x) e dello stesso
+     * prodotto scelto in più gruppi. Gli articoli in arretrato restano ordinabili.
+     */
+    private function get_bundle_stock_errors($final_selections, $bundle_groups)
+    {
+        $needed = [];
+        foreach ($final_selections as $group_idx => $group_selections) {
+            $group_settings = $bundle_groups[$group_idx]['products_settings'] ?? [];
+            foreach ($group_selections as $selection) {
+                $item = wc_get_product($selection['item_id']);
+                if (!$item)
+                    continue;
+                $lookup_id = $item->is_type('variation') ? $item->get_parent_id() : $item->get_id();
+                $multiplier = max(1, absint($group_settings[$lookup_id]['default_qty'] ?? 1));
+                $needed[$item->get_id()] = ($needed[$item->get_id()] ?? 0) + $multiplier;
+            }
+        }
+
+        $errors = [];
+        foreach ($needed as $item_id => $qty) {
+            $item = wc_get_product($item_id);
+            if (!$item)
+                continue;
+            if (!$item->is_in_stock()) {
+                $errors[] = sprintf(__('"%s" è momentaneamente non disponibile: toglilo dal bundle e scegli un altro prodotto.', 'wcb-framework'), $item->get_name());
+            }
+            elseif (!$item->has_enough_stock($qty)) {
+                $errors[] = sprintf(__('Disponibilità insufficiente per "%1$s": ne servono %2$d, ne restano %3$s.', 'wcb-framework'), $item->get_name(), $qty, wc_format_stock_quantity_for_display($item->get_stock_quantity(), $item));
+            }
+        }
+        return $errors;
+    }
+
+    private function remove_bundle_from_cart($bundle_cart_id)
+    {
+        // Senza hook: handle_bundle_item_removed rifarebbe lo stesso giro per ogni riga
+        remove_action('woocommerce_cart_item_removed', [$this, 'handle_bundle_item_removed'], 10);
+        foreach (WC()->cart->get_cart() as $key => $item) {
+            if (($item['wcb_bundle_part_of'] ?? ($item['wcb_data']['bundle_part_of'] ?? '')) === $bundle_cart_id) {
+                WC()->cart->remove_cart_item($key);
+            }
+        }
+        add_action('woocommerce_cart_item_removed', [$this, 'handle_bundle_item_removed'], 10, 2);
+    }
+
+    /**
+     * Gli errori di WC()->cart->add_to_cart() finiscono nelle notice di sessione:
+     * le riportiamo nella risposta AJAX e le togliamo, altrimenti ricomparirebbero alla pagina successiva.
+     */
+    private function collect_cart_error_notices($fallback)
+    {
+        $messages = [];
+        foreach (wc_get_notices('error') as $notice) {
+            $text = is_array($notice) ? ($notice['notice'] ?? '') : $notice;
+            $text = trim(wp_strip_all_tags((string)$text));
+            if ($text !== '')
+                $messages[] = $text;
+        }
+        wc_clear_notices();
+        return !empty($messages) ? array_values(array_unique($messages)) : [$fallback];
     }
 
     private function find_variation_id_from_attributes($product_id, $posted_attributes, &$errors_ref = null)

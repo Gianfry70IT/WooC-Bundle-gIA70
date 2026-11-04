@@ -1,5 +1,5 @@
  /*
- * asset/frontend-modern.css - Versione 2.5
+ * asset/frontend-modern.css - Versione 2.8.1
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -461,5 +461,10 @@
  }
 
  body.wcb-modern-theme .wcb-group-issue {
+     border-radius: 12px;
+ }
+
+ body.wcb-modern-theme .wcb-stock-badge,
+ body.wcb-modern-theme .wcb-group-stock-notice {
      border-radius: 12px;
  }

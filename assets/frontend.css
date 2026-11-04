@@ -1,5 +1,5 @@
 /*
- * asset/frontend.css - Versione 2.5
+ * asset/frontend.css - Versione 2.8.1
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -1592,4 +1592,65 @@ dialog.wcb-desc-modal::backdrop {
 .wcb-missing-summary a {
     color: inherit;
     text-decoration: underline;
+}
+
+/* ==========================================================================
+   PRODOTTI ESAURITI
+   ========================================================================== */
+/* Visibile ma non selezionabile: foto e "Leggi descrizione" restano cliccabili */
+.wcb-bundle-form .wcb-product-item.wcb-out-of-stock,
+.wcb-bundle-form .wcb-product-item.wcb-out-of-stock:hover,
+.wcb-bundle-form .wcb-product-item.wcb-out-of-stock.hover-modern {
+    background: #fafafa;
+    border-color: #eee;
+    box-shadow: none;
+    transform: none;
+}
+
+.wcb-bundle-form .wcb-product-item.wcb-out-of-stock > label {
+    cursor: not-allowed;
+}
+
+.wcb-bundle-form .wcb-product-item.wcb-out-of-stock .wcb-product-thumbnail {
+    filter: grayscale(1);
+    opacity: 0.6;
+}
+
+.wcb-bundle-form .wcb-product-item.wcb-out-of-stock .wcb-product-name,
+.wcb-bundle-form .wcb-product-item.wcb-out-of-stock .wcb-product-price {
+    opacity: 0.6;
+}
+
+.wcb-stock-badge {
+    display: inline-block;
+    margin: 4px 0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(214, 54, 56, 0.1);
+    color: #b32d2e;
+    font-size: 0.8em;
+    font-weight: 600;
+    line-height: 1.5;
+    align-self: flex-start; /* in .wcb-product-info (flex colonna) non deve allungarsi a tutta riga */
+}
+
+.wcb-view-grid .wcb-stock-badge {
+    align-self: center;
+}
+
+/* Opzione di variante esaurita (taglia, colore...) */
+.wcb-bundle-form .wcb-variation-select option:disabled {
+    color: #999;
+}
+
+/* Gruppo senza nessun prodotto disponibile */
+.wcb-group-stock-notice {
+    margin: 0 0 15px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: rgba(219, 166, 23, 0.12);
+    color: #8a6100;
+    font-weight: 600;
+    font-size: 0.95em;
+    line-height: 1.4;
 }

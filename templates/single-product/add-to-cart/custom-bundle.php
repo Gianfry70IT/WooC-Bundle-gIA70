@@ -1,6 +1,6 @@
 <?php
 /*
- * templates/single-product/add-to-cart/custom-bundle.php - Versione 2.5
+ * templates/single-product/add-to-cart/custom-bundle.php - Versione 2.8.1
  * Author: Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -184,14 +184,36 @@ $form_pricing_data = [
                         <?php if ( $selection_mode !== 'personalization_only' ) : ?>
                             <div class="wcb-group-products">
                                 <?php foreach ( $products_in_group as $product_id ) :
-                                    $child_product = wc_get_product( $product_id ); if ( ! $child_product ) continue; 
+                                    $child_product = wc_get_product( $product_id ); if ( ! $child_product ) continue;
                                     $variation_data = [];
+                                    // Opzioni delle varianti che hanno almeno una combinazione disponibile:
+                                    // [attribute_key => [valore => true]], oppure [attribute_key => true] se una variante disponibile accetta "qualsiasi"
+                                    $available_variation_options = [];
                                     if ($child_product->is_type('variable')) {
                                         foreach ($child_product->get_available_variations() as $variation) {
+                                            // Le varianti esaurite restano fuori: il JS non le propone tra le combinazioni possibili
+                                            if (empty($variation['is_in_stock'])) continue;
                                             // '_price' viaggia insieme agli attributi: il JS lo usa per il totale live
                                             if (!empty($variation['attributes'])) $variation_data[] = array_merge($variation['attributes'], ['_price' => $variation['display_price']]);
+                                            foreach ((array) $variation['attributes'] as $attr_key => $attr_value) {
+                                                if ($attr_value === '' || $attr_value === null) {
+                                                    $available_variation_options[$attr_key] = true;
+                                                } elseif (($available_variation_options[$attr_key] ?? null) !== true) {
+                                                    $available_variation_options[$attr_key][$attr_value] = true;
+                                                }
+                                            }
                                         }
                                     }
+                                    // Esaurito: scorta a 0 / stato "Esaurito" (gli articoli in arretrato restano ordinabili),
+                                    // oppure prodotto variabile senza nessuna variante disponibile
+                                    $is_unavailable = ! $child_product->is_in_stock()
+                                        || ( $child_product->is_type('variable') && empty($variation_data) );
+                                    $variation_option_attrs = function ($attribute_name, $option) use ($available_variation_options, $is_unavailable) {
+                                        $key = 'attribute_' . sanitize_title($attribute_name);
+                                        $allowed = $available_variation_options[$key] ?? [];
+                                        if ($is_unavailable || $allowed === true || isset($allowed[$option])) return ['', ''];
+                                        return [' disabled', ' – ' . __('esaurito', 'wcb-framework')];
+                                    };
                                     
                                     $p_settings = $products_settings[$product_id] ?? [];
                                     $item_min = absint($p_settings['min_qty'] ?? 1);
@@ -229,8 +251,9 @@ $form_pricing_data = [
                                         }
                                     }
                                     ?>
-                                    <div class="wcb-product-item" 
+                                    <div class="wcb-product-item<?php echo $is_unavailable ? ' wcb-out-of-stock' : ''; ?>"
                                         data-product-id="<?php echo esc_attr($product_id); ?>"
+                                        <?php if ($is_unavailable) echo 'data-out-of-stock="true" aria-disabled="true"'; ?>
                                         data-base-price="<?php echo esc_attr( wc_get_price_to_display( $child_product ) ); ?>"
                                         data-item-min="<?php echo esc_attr($item_min); ?>"
                                         data-item-step="<?php echo esc_attr($item_step); ?>"
@@ -248,7 +271,7 @@ $form_pricing_data = [
                                             <?php if ( in_array( $selection_mode, ['single', 'multiple'] ) ) : ?>
                                                 <input type="<?php echo $selection_mode === 'single' ? 'radio' : 'checkbox'; ?>" 
                                                        name="bundle_selection<?php echo $selection_mode === 'single' ? '_radio' : ''; ?>[<?php echo esc_attr( $group_index ); ?>]<?php echo $selection_mode === 'multiple' ? '['.esc_attr($product_id).'][selected]' : ''; ?>"
-                                                       value="<?php echo $selection_mode === 'single' ? esc_attr($product_id) : '1'; ?>">
+                                                       value="<?php echo $selection_mode === 'single' ? esc_attr($product_id) : '1'; ?>"<?php echo $is_unavailable ? ' disabled' : ''; ?>>
                                             <?php endif; ?>
                                             
                                             <div class="wcb-product-thumbnail wcb-gallery-wrapper">
@@ -285,6 +308,9 @@ $form_pricing_data = [
                                                 $has_long_description = ( $raw_long_desc_text !== '' );
                                                 ?>
                                                 <span class="wcb-product-name"><?php echo $qty_label . esc_html( $child_product->get_name() ); ?></span>
+                                                <?php if ( $is_unavailable ) : ?>
+                                                    <span class="wcb-stock-badge"><?php echo esc_html( apply_filters( 'wcb_out_of_stock_label', __( 'Momentaneamente non disponibile', 'wcb-framework' ), $child_product ) ); ?></span>
+                                                <?php endif; ?>
                                                 <?php if ( $product_snippet !== '' || $has_long_description ) : ?>
                                                     <div class="wcb-product-excerpt">
                                                         <?php if ( $product_snippet !== '' ) : ?>
@@ -300,7 +326,7 @@ $form_pricing_data = [
                                                 <span class="wcb-product-price price"><?php echo $price_html; ?></span>
                                                 <?php if ( in_array( $selection_mode, ['quantity', 'multiple_quantity'] ) ) : ?>
                                                     <div class="wcb-qty-wrapper">
-                                                        <input class="wcb-quantity-input input-text qty text" type="number" name="wcb_quantity[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>]" value="0" min="0" max="1000" step="<?php echo esc_attr($item_step); ?>" autocomplete="off" inputmode="numeric">
+                                                        <input class="wcb-quantity-input input-text qty text" type="number" name="wcb_quantity[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>]" value="0" min="0" max="1000" step="<?php echo esc_attr($item_step); ?>" autocomplete="off" inputmode="numeric"<?php echo $is_unavailable ? ' disabled' : ''; ?>>
                                                     </div>
                                                 <?php endif; ?>
                                             </div>
@@ -357,7 +383,7 @@ $form_pricing_data = [
                                             <?php endif; ?>
                                             <?php if ($child_product->is_type('variable')) : ?>
                                                 <div class="wcb-variation-fields-template"><?php foreach ( $child_product->get_variation_attributes() as $attribute_name => $options ) : ?>
-                                                    <div class="wcb-variation-field"><label><?php echo wc_attribute_label( $attribute_name ); ?>:</label><select class="wcb-variation-select" name="wcb_variation_sets[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr($product_id); ?>][__INDEX__][attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>]" data-attribute-name="attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>" disabled><option value=""><?php _e('Scegli un\'opzione', 'wcb-framework'); ?></option><?php foreach ( $options as $option ) : ?><option value="<?php echo esc_attr( $option ); ?>"><?php echo esc_html( $option ); ?></option><?php endforeach; ?></select></div>
+                                                    <div class="wcb-variation-field"><label><?php echo wc_attribute_label( $attribute_name ); ?>:</label><select class="wcb-variation-select" name="wcb_variation_sets[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr($product_id); ?>][__INDEX__][attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>]" data-attribute-name="attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>" disabled><option value=""><?php _e('Scegli un\'opzione', 'wcb-framework'); ?></option><?php foreach ( $options as $option ) : list( $opt_disabled, $opt_suffix ) = $variation_option_attrs( $attribute_name, $option ); ?><option value="<?php echo esc_attr( $option ); ?>"<?php echo $opt_disabled; ?>><?php echo esc_html( $option . $opt_suffix ); ?></option><?php endforeach; ?></select></div>
                                                 <?php endforeach; ?></div>
                                             <?php endif; ?>
                                             <?php if ($personalization_enabled && !empty($personalization_fields)) : ?>
@@ -374,7 +400,7 @@ $form_pricing_data = [
                                         <?php if ( $child_product->is_type( 'variable' ) ) : ?>
                                             <div class="wcb-variation-container" style="display:none;">
                                                 <?php foreach ( $child_product->get_variation_attributes() as $attribute_name => $options ) : ?>
-                                                    <div class="wcb-variation-field"><label><?php echo wc_attribute_label( $attribute_name ); ?>:</label><select class="wcb-variation-select" name="bundle_selection[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>][attributes][attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>]" data-attribute-name="attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>" disabled><option value=""><?php _e('Scegli un\'opzione', 'wcb-framework'); ?></option><?php foreach ( $options as $option ) : ?><option value="<?php echo esc_attr( $option ); ?>"><?php echo esc_html( $option ); ?></option><?php endforeach; ?></select></div>
+                                                    <div class="wcb-variation-field"><label><?php echo wc_attribute_label( $attribute_name ); ?>:</label><select class="wcb-variation-select" name="bundle_selection[<?php echo esc_attr( $group_index ); ?>][<?php echo esc_attr( $product_id ); ?>][attributes][attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>]" data-attribute-name="attribute_<?php echo esc_attr( sanitize_title( $attribute_name ) ); ?>" disabled><option value=""><?php _e('Scegli un\'opzione', 'wcb-framework'); ?></option><?php foreach ( $options as $option ) : list( $opt_disabled, $opt_suffix ) = $variation_option_attrs( $attribute_name, $option ); ?><option value="<?php echo esc_attr( $option ); ?>"<?php echo $opt_disabled; ?>><?php echo esc_html( $option . $opt_suffix ); ?></option><?php endforeach; ?></select></div>
                                                 <?php endforeach; ?>
                                             </div>
                                         <?php endif; ?>
