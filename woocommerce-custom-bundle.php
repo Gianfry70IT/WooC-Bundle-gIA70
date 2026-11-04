@@ -2,15 +2,19 @@
 /**
  * Plugin Name:       WooC Bundle gIA70
  * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           2.8.2
+ * Version:           2.8.3
  * Author:            gIA70 - Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       wcb-framework
  * GithubRepo:        Gianfry70IT/WooC-Bundle-gIA70
  * Primary Branch:    main
- * Requires at least: 6.0
- * Tested up to:      6.9
+ * Requires at least: 6.2
+ * Tested up to:      7.1
+ * Requires PHP:      7.4
+ * Requires Plugins:  woocommerce
+ * WC requires at least: 8.0
+ * WC tested up to:   11.2
  */
 
 if (!defined('WCB_MODERN_THEME_DEFAULT')) {
@@ -25,6 +29,15 @@ if (defined('WCB_PLUGIN_LOADED') || class_exists('WCB_Theme_Settings', false) ||
     return;
 }
 define('WCB_PLUGIN_LOADED', true);
+
+// Compatibilità dichiarata a WooCommerce: tabelle ordini HPOS (il plugin usa solo le API CRUD degli ordini)
+// e Carrello/Checkout a blocchi (dati del bundle via Store API, vedi frontend-blocks-cart.js)
+add_action('before_woocommerce_init', function () {
+    if (class_exists('\Automattic\WooCommerce\Utilities\FeaturesUtil')) {
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true);
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('cart_checkout_blocks', __FILE__, true);
+    }
+});
 
 if (!class_exists('WCB_Theme_Settings', false)) :
 // Gestione Impostazioni & Documentazione
@@ -204,7 +217,7 @@ class WCB_Theme_Settings
 <div class="wrap">
     <h1>
         <?php esc_html_e('WooC Bundle gIA70 - Pannello di Controllo', 'wcb-framework'); ?>
-        <span style="font-size: 13px; background: #2271b1; color: #fff; padding: 3px 10px; border-radius: 12px; vertical-align: middle; margin-left: 10px;">v2.8.2 (<?php echo esc_html(dirname(plugin_basename(__FILE__))); ?>)</span>
+        <span style="font-size: 13px; background: #2271b1; color: #fff; padding: 3px 10px; border-radius: 12px; vertical-align: middle; margin-left: 10px;">v2.8.3 (<?php echo esc_html(dirname(plugin_basename(__FILE__))); ?>)</span>
     </h1>
 
     <h2 class="nav-tab-wrapper">
@@ -909,7 +922,10 @@ final class WC_Custom_Bundle_Framework
         // anche a quelli fuori dalle categorie/prodotti a cui il coupon è ristretto.
         add_filter('woocommerce_coupon_is_valid_for_product', [$this, 'force_coupon_for_bundle_items'], 10, 4);
 
-        add_action('woocommerce_order_status_processing', [$this, 'reduce_stock_for_bundle_items']);
+        // SCORTE (bundle a riga unica): agganciate al flusso di WooCommerce, che riduce una sola volta
+        // per ordine (in attesa / in lavorazione / completato) e ripristina su annullato, in attesa di pagamento e fallito
+        add_action('woocommerce_reduce_order_stock', [$this, 'reduce_stock_for_bundle_items']);
+        add_action('woocommerce_restore_order_stock', [$this, 'restore_stock_for_bundle_items']);
         add_action('woocommerce_cart_item_removed', [$this, 'handle_bundle_item_removed'], 10, 2);
         add_action('wp_ajax_wcb_get_variation_price', [$this, 'get_variation_price_handler']);
         add_action('wp_ajax_nopriv_wcb_get_variation_price', [$this, 'get_variation_price_handler']);
@@ -3108,6 +3124,8 @@ final class WC_Custom_Bundle_Framework
     {
         if (!empty($values['wcb_bundle_selections'])) {
             $item->add_meta_data('_wcb_bundle_selections_hidden', $values['wcb_bundle_selections'], true);
+            // Pezzi di ogni prodotto in UN bundle, fissati al momento dell'ordine (la configurazione può cambiare dopo)
+            $item->add_meta_data('_wcb_stock_quantities', self::get_bundle_selection_stock_quantities($values['product_id'] ?? 0, $values['wcb_bundle_selections']), true);
             $item->add_meta_data(__('Contenuto del Bundle', 'wcb-framework'), '', true);
             $display_items = [];
             foreach ($values['wcb_bundle_selections'] as $group_selections) {
@@ -3193,26 +3211,106 @@ final class WC_Custom_Bundle_Framework
         }
     }
 
-    public function reduce_stock_for_bundle_items($order_id)
+    /**
+     * Pezzi di ogni prodotto contenuti in UN bundle a riga unica, compresa la "quantità predefinita" (badge 2x).
+     * @return array [product_id => pezzi]
+     */
+    private static function get_bundle_selection_stock_quantities($bundle_id, $selections)
     {
-        $order = wc_get_order($order_id);
+        $groups = $bundle_id ? self::get_bundle_groups($bundle_id) : [];
+        $quantities = [];
+        foreach ((array)$selections as $group_idx => $group_selections) {
+            $settings = $groups[$group_idx]['products_settings'] ?? [];
+            foreach ((array)$group_selections as $selection) {
+                $pid = absint($selection['item_id'] ?? 0);
+                if (!$pid)
+                    continue;
+                $child = wc_get_product($pid);
+                $lookup_id = ($child && $child->is_type('variation')) ? $child->get_parent_id() : $pid;
+                $quantities[$pid] = ($quantities[$pid] ?? 0) + max(1, absint($settings[$lookup_id]['default_qty'] ?? 1));
+            }
+        }
+        return $quantities;
+    }
+
+    /**
+     * Riduce le scorte dei prodotti contenuti nei bundle a riga unica (le righe separate le gestisce WooCommerce).
+     * Chiamata da wc_reduce_stock_levels(), una sola volta per ordine. Quanto ridotto resta sulla riga
+     * dell'ordine (_wcb_reduced_stock): serve a ripristinare esattamente le stesse quantità e a non ridurre due volte.
+     */
+    public function reduce_stock_for_bundle_items($order)
+    {
+        $order = is_a($order, 'WC_Order') ? $order : wc_get_order($order);
         if (!$order)
             return;
+        $changes = [];
+        $notes = [];
         foreach ($order->get_items() as $item) {
+            if (!is_a($item, 'WC_Order_Item_Product') || $item->get_meta('_wcb_reduced_stock'))
+                continue;
             $selections = $item->get_meta('_wcb_bundle_selections_hidden');
-            if ($selections && is_array($selections)) {
-                $quantities_to_reduce = [];
-                foreach ($selections as $group_selections) {
-                    foreach ($group_selections as $selection) {
-                        $quantities_to_reduce[$selection['item_id']] = ($quantities_to_reduce[$selection['item_id']] ?? 0) + 1;
-                    }
-                }
-                foreach ($quantities_to_reduce as $product_id => $quantity) {
-                    $child_product = wc_get_product($product_id);
-                    if ($child_product && $child_product->managing_stock())
-                        wc_update_product_stock($child_product, $quantity, 'decrease');
-                }
+            if (!$selections || !is_array($selections))
+                continue;
+            $per_bundle = $item->get_meta('_wcb_stock_quantities');
+            if (!is_array($per_bundle) || empty($per_bundle)) {
+                // Ordini creati prima della 2.8.3: quantità dalla configurazione attuale del bundle
+                $per_bundle = self::get_bundle_selection_stock_quantities($item->get_product_id(), $selections);
             }
+            $bundles_in_line = max(1, absint($item->get_quantity()));
+            $reduced = [];
+            foreach ($per_bundle as $pid => $qty) {
+                $qty = absint($qty) * $bundles_in_line;
+                $child = wc_get_product($pid);
+                if ($qty <= 0 || !$child || !$child->managing_stock())
+                    continue;
+                $old_stock = $child->get_stock_quantity();
+                $new_stock = wc_update_product_stock($child, $qty, 'decrease');
+                if (!is_numeric($new_stock))
+                    continue;
+                $reduced[$pid] = $qty;
+                $changes[] = ['product' => $child, 'from' => $old_stock, 'to' => $new_stock];
+                $notes[] = sprintf('%s %s→%s', $child->get_formatted_name(), wc_stock_amount($old_stock), wc_stock_amount($new_stock));
+            }
+            if ($reduced) {
+                $item->update_meta_data('_wcb_reduced_stock', $reduced);
+                $item->save();
+            }
+        }
+        if ($notes) {
+            $order->add_order_note(__('Scorte dei prodotti del bundle ridotte:', 'wcb-framework') . ' ' . implode(', ', $notes));
+            // Email di scorta bassa / esaurita, come per i prodotti normali
+            if (function_exists('wc_trigger_stock_change_notifications'))
+                wc_trigger_stock_change_notifications($order, $changes);
+        }
+    }
+
+    /** Ripristina quanto ridotto da reduce_stock_for_bundle_items() (chiamata da wc_increase_stock_levels()). */
+    public function restore_stock_for_bundle_items($order)
+    {
+        $order = is_a($order, 'WC_Order') ? $order : wc_get_order($order);
+        if (!$order)
+            return;
+        $notes = [];
+        foreach ($order->get_items() as $item) {
+            if (!is_a($item, 'WC_Order_Item_Product'))
+                continue;
+            $reduced = $item->get_meta('_wcb_reduced_stock');
+            if (!is_array($reduced) || empty($reduced))
+                continue;
+            foreach ($reduced as $pid => $qty) {
+                $child = wc_get_product($pid);
+                if (!$child || !$child->managing_stock() || absint($qty) <= 0)
+                    continue;
+                $old_stock = $child->get_stock_quantity();
+                $new_stock = wc_update_product_stock($child, absint($qty), 'increase');
+                if (is_numeric($new_stock))
+                    $notes[] = sprintf('%s %s→%s', $child->get_formatted_name(), wc_stock_amount($old_stock), wc_stock_amount($new_stock));
+            }
+            $item->delete_meta_data('_wcb_reduced_stock');
+            $item->save();
+        }
+        if ($notes) {
+            $order->add_order_note(__('Scorte dei prodotti del bundle ripristinate:', 'wcb-framework') . ' ' . implode(', ', $notes));
         }
     }
 

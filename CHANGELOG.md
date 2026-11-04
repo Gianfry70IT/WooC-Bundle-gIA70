@@ -17,6 +17,18 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/)
   
 ---
 
+## [2.8.3] - 2026-11-04
+
+### Corretto
+- 🐛 **Scorte dei bundle a riga unica**: la riduzione ora segue il flusso di WooCommerce invece dello stato "In lavorazione". Avviene una sola volta per ordine (prima un ordine che tornava in lavorazione scalava di nuovo), anche per gli ordini che passano da "In attesa" o vanno direttamente a "Completato", e viene **ripristinata** quando l'ordine è annullato, torna in attesa di pagamento o fallisce. Conta la quantità predefinita del prodotto (badge 2x) e il numero di bundle nella riga; le quantità sono fissate sull'ordine al checkout. Note d'ordine e email di scorta bassa come per i prodotti normali
+
+### Compatibilità
+- Dichiarata la compatibilità con le tabelle ordini HPOS e con Carrello/Checkout a blocchi: WooCommerce non segnala più il plugin come incompatibile
+- Header aggiornati: `Requires Plugins: woocommerce`, `WC requires at least: 8.0`, `WC tested up to: 11.2`, `Requires PHP: 7.4`, `Requires at least: 6.2`, `Tested up to: 7.1`
+
+### Sicurezza
+- 🔒 **Updater**: risposta dell'API GitHub in cache (6 ore, 30 minuti dopo un errore; "Controlla di nuovo" la salta) per non superare il limite di 60 richieste/ora; si installa solo lo zip allegato alla release, scaricato dal repository, e solo se corrisponde all'impronta SHA-256 pubblicata da GitHub; la cartella estratta prende sempre il nome di quella installata, così il plugin non si disattiva; il controllo aggiornamenti funziona anche da cron
+
 ## [2.8.2] - 2026-11-04
 
 ### Aggiunto
