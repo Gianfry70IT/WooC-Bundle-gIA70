@@ -1060,6 +1060,11 @@ input.wcb-personalization-input:-webkit-autofill {
     }
 }
 
+/* Gruppo impostato a 1 colonna (o "Automatico" con un solo prodotto): resta a 1 a ogni larghezza */
+.wcb-view-grid .wcb-group-products.wcb-group-cols-1 {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 .wcb-view-grid .wcb-product-item {
     margin-bottom: 0;
     display: flex;

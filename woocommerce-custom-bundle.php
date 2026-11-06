@@ -1143,6 +1143,8 @@ final class WC_Custom_Bundle_Framework
                 'products_settings' => $products_settings,
                 'price_override' => wc_format_decimal($group['price_override'] ?? ''),
                 'show_price_behavior' => sanitize_text_field($group['show_price_behavior'] ?? 'default'),
+                // Colonne della griglia per il gruppo: '' = come il bundle
+                'grid_columns' => in_array((string) ($group['grid_columns'] ?? ''), ['auto', '1', '2', '3', '4'], true) ? (string) $group['grid_columns'] : '',
             ];
             // Mappa SKU/slug dell'export: serve a get_bundle_groups() per ritrovare i prodotti su un altro sito
             if (!empty($group['products_export_map']) && is_array($group['products_export_map'])) {
@@ -1663,10 +1665,57 @@ final class WC_Custom_Bundle_Framework
             $errors[] = sprintf(__('Selezione non valida per il gruppo "%s".', 'wcb-framework'), $group_config['title'] ?? '');
         };
 
+        // SICUREZZA: le regole min/max/totale del gruppo valgono anche lato server (stessi controlli di getGroupIssue() in frontend.js)
+        $validate_group_rules = function ($group_config, $selected_count) use (&$errors) {
+            $mode = $group_config['selection_mode'] ?? 'multiple';
+            $is_required = ($group_config['is_required'] ?? 'no') === 'yes';
+            if ($selected_count === 0 && !$is_required) {
+                return;
+            }
+            $message = '';
+            if ('multiple' === $mode) {
+                $min = absint($group_config['min_qty'] ?? 0);
+                $max = absint($group_config['max_qty'] ?? 0);
+                if ($selected_count < $min) {
+                    $message = $min === 1
+                        ? __('Scegli almeno un prodotto.', 'wcb-framework')
+                        : sprintf(_n('Scegli almeno %1$d prodotti (ne hai scelto %2$d).', 'Scegli almeno %1$d prodotti (ne hai scelti %2$d).', $selected_count, 'wcb-framework'), $min, $selected_count);
+                }
+                elseif ($max !== 0 && $selected_count > $max) {
+                    $message = sprintf(_n('Puoi scegliere al massimo %1$d prodotto (ne hai scelti %2$d).', 'Puoi scegliere al massimo %1$d prodotti (ne hai scelti %2$d).', $max, 'wcb-framework'), $max, $selected_count);
+                }
+            }
+            elseif ('quantity' === $mode) {
+                $total = absint($group_config['total_qty'] ?? 0);
+                if ($total > 0 && $selected_count < $total) {
+                    $missing = $total - $selected_count;
+                    $message = sprintf(_n('Seleziona %1$d pezzi in totale: ne manca %2$d.', 'Seleziona %1$d pezzi in totale: ne mancano %2$d.', $missing, 'wcb-framework'), $total, $missing);
+                }
+                elseif ($total > 0 && $selected_count > $total) {
+                    $excess = $selected_count - $total;
+                    $message = sprintf(_n('Seleziona %1$d pezzi in totale: ne hai %2$d in più.', 'Seleziona %1$d pezzi in totale: ne hai %2$d in più.', $excess, 'wcb-framework'), $total, $excess);
+                }
+            }
+            elseif ('multiple_quantity' === $mode) {
+                $min = absint($group_config['min_qty'] ?? 0);
+                $max = absint($group_config['max_qty'] ?? 0);
+                if ($selected_count < $min) {
+                    $message = sprintf(_n('Seleziona almeno %1$d pezzo (ora %2$d).', 'Seleziona almeno %1$d pezzi (ora %2$d).', $min, 'wcb-framework'), $min, $selected_count);
+                }
+                elseif ($max !== 0 && $selected_count > $max) {
+                    $message = sprintf(_n('Puoi selezionare al massimo %1$d pezzo (ora %2$d).', 'Puoi selezionare al massimo %1$d pezzi (ora %2$d).', $max, 'wcb-framework'), $max, $selected_count);
+                }
+            }
+            if ($message !== '') {
+                $errors[] = sprintf(__('Gruppo "%1$s": %2$s', 'wcb-framework'), $group_config['title'] ?? '', $message);
+            }
+        };
+
         foreach ($bundle_groups as $group_index => $group_config) {
             $is_required = ($group_config['is_required'] ?? 'no') === 'yes';
             $selection_mode = $group_config['selection_mode'];
             $selection_instances = [];
+            $selected_count = 0; // prodotti scelti (multiple) o pezzi totali (modalità a quantità)
             $allowed_products = array_map('intval', $group_config['products'] ?? []);
 
             if ('single' === $selection_mode) {
@@ -1705,6 +1754,7 @@ final class WC_Custom_Bundle_Framework
                             $invalid_selection_error($group_config);
                             continue;
                         }
+                        $selected_count++;
                         $child_product = wc_get_product($pid);
                         if ($child_product) {
                             $item_id = $pid;
@@ -1736,6 +1786,7 @@ final class WC_Custom_Bundle_Framework
                             $invalid_selection_error($group_config);
                             continue;
                         }
+                        $selected_count += $qty;
                         $child_product = wc_get_product($pid);
                         if ($child_product) {
                             if (!$validate_product_qty($qty, $pid, $group_config, $child_product->get_name()))
@@ -1779,6 +1830,7 @@ final class WC_Custom_Bundle_Framework
                     }
                 }
             }
+            $validate_group_rules($group_config, $selected_count);
             if ($is_required && empty($selection_instances) && empty($errors)) {
                 $errors[] = sprintf(__('Devi fare una selezione per il gruppo "%s".', 'wcb-framework'), $group_config['title']);
             }
@@ -2729,6 +2781,10 @@ final class WC_Custom_Bundle_Framework
                     grid-template-columns: minmax(0, 1fr) !important;
                 }
             }
+            /* Gruppo impostato a 1 colonna: resta a 1 anche su tablet */
+            .wcb-view-grid .wcb-group-products.wcb-group-cols-1 {
+                grid-template-columns: minmax(0, 1fr) !important;
+            }
             .wcb-view-grid .wcb-product-item {
                 margin-bottom: 0 !important;
                 display: flex !important;
@@ -3476,23 +3532,22 @@ final class WC_Custom_Bundle_Framework
             }
         }
 
-        // FASE 1: Pre-calcolo Totali Gruppi (Regolare)
+        // FASE 1: Pre-calcolo Totali Gruppi (prezzo attivo, cioè in saldo se c'è: come nel totale mostrato dal JS)
         $bundle_group_totals = [];
         foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
             if (isset($cart_item['wcb_bundle_part_of'])) {
                 $product_id = $cart_item['data']->get_id();
                 $original_product = wc_get_product($product_id);
                 if ($original_product) {
-                    $raw_reg = $original_product->get_regular_price();
-                    $reg_price = floatval($raw_reg !== '' ? $raw_reg : $original_product->get_price());
-                    $cart->cart_contents[$cart_item_key]['data']->set_price($reg_price);
+                    $base_price = floatval($original_product->get_price());
+                    $cart->cart_contents[$cart_item_key]['data']->set_price($base_price);
 
                     $bundle_id = $cart_item['wcb_bundle_part_of'];
                     $group_idx = $cart_item['wcb_source_group_index'] ?? null;
                     if ($group_idx !== null) {
                         if (!isset($bundle_group_totals[$bundle_id][$group_idx]))
                             $bundle_group_totals[$bundle_id][$group_idx] = 0;
-                        $bundle_group_totals[$bundle_id][$group_idx] += $reg_price * $cart_item['quantity'];
+                        $bundle_group_totals[$bundle_id][$group_idx] += $base_price * $cart_item['quantity'];
                     }
                 }
             }
@@ -3536,9 +3591,9 @@ final class WC_Custom_Bundle_Framework
 
                         if ($actual_total > 0) {
                             $ratio = $target_total / $actual_total;
-                            $raw_reg_item = $cart_item_data['data']->get_regular_price();
-                            $regular_price_this_item = floatval($raw_reg_item !== '' ? $raw_reg_item : $cart_item_data['data']->get_price());
-                            $new_price = $regular_price_this_item * $ratio;
+                            // Prezzo impostato in FASE 1: la stessa base usata per $actual_total
+                            $base_price_this_item = floatval($cart_item_data['data']->get_price());
+                            $new_price = $base_price_this_item * $ratio;
                             $cart->cart_contents[$cart_item_key]['data']->set_price($new_price);
                         }
                     }

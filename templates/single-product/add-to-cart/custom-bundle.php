@@ -103,6 +103,15 @@ $form_pricing_data = [
                         $personalization_fields[] = ['label' => $group['personalization_label'], 'required' => $group['personalization_required'] ?? 'no'];
                     }
                     $products_settings = $group['products_settings'] ?? [];
+
+                    // Colonne della griglia per questo gruppo: '' = come il bundle, 'auto' = non più dei prodotti presenti
+                    $group_grid_setting = (string) ( $group['grid_columns'] ?? '' );
+                    $group_grid_columns = $grid_columns;
+                    if ( in_array( $group_grid_setting, [ '1', '2', '3', '4' ], true ) ) {
+                        $group_grid_columns = (int) $group_grid_setting;
+                    } elseif ( 'auto' === $group_grid_setting ) {
+                        $group_grid_columns = max( 1, min( $grid_columns, count( array_filter( array_map( 'wc_get_product', (array) $products_in_group ) ) ) ) );
+                    }
                     $group_price_override = isset($group['price_override']) && $group['price_override'] !== '' ? floatval($group['price_override']) : null;
                     
                     // --- LOGICA OVERRIDE PREZZO E VISIBILITÀ (FIX 2.5) ---
@@ -182,7 +191,7 @@ $form_pricing_data = [
                         </div>
 
                         <?php if ( $selection_mode !== 'personalization_only' ) : ?>
-                            <div class="wcb-group-products">
+                            <div class="wcb-group-products wcb-group-cols-<?php echo esc_attr( $group_grid_columns ); ?>"<?php if ( $group_grid_columns !== $grid_columns ) : ?> style="--wcb-grid-cols: <?php echo esc_attr( $group_grid_columns ); ?>;"<?php endif; ?>>
                                 <?php foreach ( $products_in_group as $product_id ) :
                                     $child_product = wc_get_product( $product_id ); if ( ! $child_product ) continue;
                                     $variation_data = [];

@@ -17,6 +17,20 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/)
   
 ---
 
+## [Non rilasciato]
+
+### Aggiunto
+- ✨ **Colonne per gruppo**: nelle impostazioni del gruppo si può scegliere quante colonne usa la vista griglia (1–4), oppure "Automatico", che non usa più colonne dei prodotti presenti (un gruppo con un solo prodotto occupa tutta la larghezza). Il valore predefinito "Come il bundle" lascia i bundle esistenti invariati. Su tablet e telefono restano le regole attuali (2 e poi 1 colonna); un gruppo a 1 colonna resta a 1 anche su tablet. Vale solo con la Vista Prodotti a griglia
+
+### Corretto
+- 🐛 **Bundle ad articoli separati in saldo**: il prezzo fisso o il prezzo di gruppo veniva ripartito sul prezzo pieno dei prodotti; ora parte dal prezzo attivo (in saldo, se c'è), come il totale mostrato nella pagina del bundle
+- 🐛 **Prezzo di gruppo "0"**: un gruppo con override 0 ora risulta gratuito anche nel totale mostrato nella pagina (prima il totale sommava i prezzi dei prodotti)
+- 🐛 **Admin**: un prezzo prodotto impostato a 0 non diventa più vuoto quando si riapre e si salva il bundle
+- 🐛 **Più bundle nella stessa pagina**: ogni form ha il suo stato, totale, pulsanti e messaggi; prima il pulsante mobile inviava tutti i form e il totale di uno sovrascriveva gli altri
+
+### Sicurezza
+- 🔒 **Regole dei gruppi controllate anche dal server**: minimo/massimo di prodotti (scelta multipla), totale esatto di pezzi e minimo/massimo di pezzi venivano verificati solo nel browser; ora una richiesta manipolata che non le rispetta viene rifiutata, con gli stessi messaggi della pagina
+
 ## [2.8.3] - 2026-11-04
 
 ### Corretto

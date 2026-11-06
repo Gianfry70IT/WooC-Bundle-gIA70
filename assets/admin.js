@@ -125,7 +125,7 @@ jQuery(document).ready(function ($) {
                 const savedMin = $preload.data('min') || 1;
                 const savedStep = $preload.data('step') || 1;
                 const savedDefaultQty = $preload.data('default-qty') || 1;
-                const savedPrice = $preload.data('price') || '';
+                const savedPrice = $preload.attr('data-price') ?? ''; // attr, non data(): un prezzo "0" deve restare 0, non diventare vuoto
                 const savedExtraPrice = $preload.data('extra-price') || '';
                 const savedExtraLabel = $preload.attr('data-extra-label') || '';
                 const hasExtraPrice = savedExtraPrice !== '' && parseFloat(savedExtraPrice.toString().replace(',', '.')) > 0;
@@ -251,8 +251,10 @@ jQuery(document).ready(function ($) {
         const selection_mode = data.selection_mode || 'multiple';
         const is_required = data.is_required === 'no' ? '' : 'checked';
         const products = data.products || [];
-        const price_override = data.price_override || '';
+        const price_override = data.price_override ?? '';
         const show_price_behavior = data.show_price_behavior || 'default';
+        const grid_columns = ['auto', '1', '2', '3', '4'].includes(String(data.grid_columns || '')) ? String(data.grid_columns) : '';
+        const colsOption = (value, label) => `<option value="${value}" ${grid_columns === value ? 'selected' : ''}>${label}</option>`;
         const personalization_enabled = data.personalization_enabled === 'yes' ? 'checked' : '';
         const products_settings = data.products_settings || {};
 
@@ -273,7 +275,7 @@ jQuery(document).ready(function ($) {
             products.forEach(p => {
                 optionsHtml += `<option value="${p.id}" data-image-url="${escHtml(p.image_url)}" selected="selected">${escHtml(p.text)}</option>`;
                 const pSet = products_settings[p.id] || {};
-                preloadHtml += `<div class="wcb-preload-data" data-id="${p.id}" data-min="${escHtml(pSet.min_qty || 1)}" data-step="${escHtml(pSet.step || 1)}" data-default-qty="${escHtml(pSet.default_qty || 1)}" data-price="${escHtml(pSet.price || '')}" data-extra-price="${escHtml(pSet.extra_unit_price || '')}" data-extra-label="${escHtml(pSet.extra_unit_label || '')}" style="display:none;"></div>`;
+                preloadHtml += `<div class="wcb-preload-data" data-id="${p.id}" data-min="${escHtml(pSet.min_qty || 1)}" data-step="${escHtml(pSet.step || 1)}" data-default-qty="${escHtml(pSet.default_qty || 1)}" data-price="${escHtml(pSet.price ?? '')}" data-extra-price="${escHtml(pSet.extra_unit_price || '')}" data-extra-label="${escHtml(pSet.extra_unit_label || '')}" style="display:none;"></div>`;
             });
         }
 
@@ -306,6 +308,17 @@ jQuery(document).ready(function ($) {
                     <p class="form-field rule-field rule-quantity" style="display:${selection_mode === 'quantity' ? 'block' : 'none'}"><label>Totale Esatto</label><input type="number" name="_bundle_groups[${groupIndex}][total_qty]" value="${escHtml(total_qty)}" min="1"></p>
                     
                     <p class="form-field"><label>Prezzo Override Gruppo (€)</label><input type="text" name="_bundle_groups[${groupIndex}][price_override]" value="${escHtml(price_override)}" class="wc_input_price" placeholder="Opzionale"></p>
+
+                    <p class="form-field"><label title="Vale solo quando la Vista Prodotti del bundle è Griglia">Colonne (vista griglia)</label>
+                        <select name="_bundle_groups[${groupIndex}][grid_columns]">
+                            ${colsOption('', 'Come il bundle')}
+                            ${colsOption('auto', 'Automatico (in base ai prodotti)')}
+                            ${colsOption('1', '1 colonna')}
+                            ${colsOption('2', '2 colonne')}
+                            ${colsOption('3', '3 colonne')}
+                            ${colsOption('4', '4 colonne')}
+                        </select>
+                    </p>
                     
                     <p class="form-field" style="display:none;"><label>Mostra Prezzi Item</label>
                         <select name="_bundle_groups[${groupIndex}][show_price_behavior]">
