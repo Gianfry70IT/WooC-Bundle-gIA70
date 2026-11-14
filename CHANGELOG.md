@@ -17,7 +17,7 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/)
   
 ---
 
-## [Non rilasciato]
+## [2.8.4] - 2026-11-14
 
 ### Aggiunto
 - ✨ **Colonne per gruppo**: nelle impostazioni del gruppo si può scegliere quante colonne usa la vista griglia (1–4), oppure "Automatico", che non usa più colonne dei prodotti presenti (un gruppo con un solo prodotto occupa tutta la larghezza). Il valore predefinito "Come il bundle" lascia i bundle esistenti invariati. Su tablet e telefono restano le regole attuali (2 e poi 1 colonna); un gruppo a 1 colonna resta a 1 anche su tablet. Vale solo con la Vista Prodotti a griglia

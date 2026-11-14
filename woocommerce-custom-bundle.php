@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WooC Bundle gIA70
  * Description:       Un framework per creare prodotti bundle personalizzabili, unendo un'amministrazione stabile con un frontend funzionale.
- * Version:           2.8.3
+ * Version:           2.8.4
  * Author:            gIA70 - Gianfranco Greco con Codice Sorgente
  * Copyright (c) 2025 Gianfranco Greco
  * Licensed under the GNU GPL v2 or later: https://www.gnu.org/licenses/gpl-2.0.html
@@ -217,7 +217,7 @@ class WCB_Theme_Settings
 <div class="wrap">
     <h1>
         <?php esc_html_e('WooC Bundle gIA70 - Pannello di Controllo', 'wcb-framework'); ?>
-        <span style="font-size: 13px; background: #2271b1; color: #fff; padding: 3px 10px; border-radius: 12px; vertical-align: middle; margin-left: 10px;">v2.8.3 (<?php echo esc_html(dirname(plugin_basename(__FILE__))); ?>)</span>
+        <span style="font-size: 13px; background: #2271b1; color: #fff; padding: 3px 10px; border-radius: 12px; vertical-align: middle; margin-left: 10px;">v2.8.4 (<?php echo esc_html(dirname(plugin_basename(__FILE__))); ?>)</span>
     </h1>
 
     <h2 class="nav-tab-wrapper">
